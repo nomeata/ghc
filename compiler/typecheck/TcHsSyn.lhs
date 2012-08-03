@@ -678,6 +678,10 @@ zonkExpr env (PArrSeq expr info)
     zonkArithSeq env info	`thenM` \ new_info ->
     returnM (PArrSeq new_expr new_info)
 
+zonkExpr env (HsDontUpdate expr)
+  = zonkLExpr env expr	`thenM` \ new_expr ->
+    returnM (HsDontUpdate new_expr)
+
 zonkExpr env (HsSCC lbl expr)
   = zonkLExpr env expr	`thenM` \ new_expr ->
     returnM (HsSCC lbl new_expr)

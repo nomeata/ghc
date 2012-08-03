@@ -213,6 +213,10 @@ rnExpr (HsCoreAnn ann expr)
   = rnLExpr expr `thenM` \ (expr', fvs_expr) ->
     return (HsCoreAnn ann expr', fvs_expr)
 
+rnExpr (HsDontUpdate expr)
+  = rnLExpr expr	 	`thenM` \ (expr', fvs_expr) ->
+    return (HsDontUpdate expr', fvs_expr)
+
 rnExpr (HsSCC lbl expr)
   = rnLExpr expr	 	`thenM` \ (expr', fvs_expr) ->
     return (HsSCC lbl expr', fvs_expr)

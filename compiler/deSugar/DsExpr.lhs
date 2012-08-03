@@ -300,6 +300,9 @@ dsExpr (HsSCC cc expr@(L loc _)) = do
     uniq <- newUnique
     Tick (ProfNote (mkUserCC cc mod_name loc uniq) count True) <$> dsLExpr expr
 
+dsExpr (HsDontUpdate expr) = do
+    Tick DontUpdate <$> dsLExpr expr
+
 dsExpr (HsCoreAnn _ expr)
   = dsLExpr expr
 

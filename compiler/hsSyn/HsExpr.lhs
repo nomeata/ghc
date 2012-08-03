@@ -210,6 +210,9 @@ data HsExpr id
   | HsSCC       FastString              -- "set cost centre" SCC pragma
                 (LHsExpr id)            -- expr whose cost is to be measured
 
+  | HsDontUpdate                        -- don't-update pragma
+                (LHsExpr id)            -- expr whose cost is to be measured
+
   | HsCoreAnn   FastString              -- hdaume: core annotation
                 (LHsExpr id)
 
@@ -512,6 +515,10 @@ ppr_expr (EViewPat p e) = ppr p <+> ptext (sLit "->") <+> ppr e
 
 ppr_expr (HsSCC lbl expr)
   = sep [ ptext (sLit "_scc_") <+> doubleQuotes (ftext lbl),
+          pprParendExpr expr ]
+
+ppr_expr (HsDontUpdate expr)
+  = sep [ ptext (sLit "NOUPDATE"),
           pprParendExpr expr ]
 
 ppr_expr (HsWrap co_fn e) = pprHsWrapper (pprExpr e) co_fn

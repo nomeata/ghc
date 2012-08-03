@@ -257,6 +257,7 @@ incorrect.
  '{-# SOURCE'                                   { L _ ITsource_prag }
  '{-# RULES'                                    { L _ ITrules_prag }
  '{-# CORE'                                     { L _ ITcore_prag }              -- hdaume: annotated core
+ '{-# NOUPDATE'           { L _ ITnoupdate_prag }
  '{-# SCC'                { L _ ITscc_prag }
  '{-# GENERATED'          { L _ ITgenerated_prag }
  '{-# DEPRECATED'         { L _ ITdeprecated_prag }
@@ -1418,6 +1419,7 @@ exp10 :: { LHsExpr RdrName }
 
         | '{-# CORE' STRING '#-}' exp           { LL $ HsCoreAnn (getSTRING $2) $4 }
                                                     -- hdaume: core annotation
+        | '{-# NOUPDATE' '#-}' exp           { LL $ HsDontUpdate $3 }
         | fexp                                  { $1 }
 
 optSemi :: { Bool }

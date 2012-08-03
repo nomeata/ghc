@@ -1281,6 +1281,8 @@ instance Binary IfaceTickish where
         put_ bh cc
         put_ bh tick
         put_ bh push
+    put_ bh (IfaceDontUpdate) = do
+        putByte bh 2
 
     get bh = do
         h <- getByte bh
@@ -1292,6 +1294,7 @@ instance Binary IfaceTickish where
                     tick <- get bh
                     push <- get bh
                     return (IfaceSCC cc tick push)
+            2 -> do return IfaceDontUpdate
             _ -> panic ("get IfaceTickish " ++ show h)
 
 -------------------------------------------------------------------------

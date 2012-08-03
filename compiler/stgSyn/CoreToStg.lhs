@@ -355,6 +355,9 @@ coreToStgExpr (Tick (ProfNote cc tick push) expr)
   = do (expr2, fvs, escs) <- coreToStgExpr expr
        return (StgSCC cc tick push expr2, fvs, escs)
 
+coreToStgExpr (Tick DontUpdate{} expr)
+  = coreToStgExpr expr {- TODO -}
+
 coreToStgExpr (Tick Breakpoint{} _expr)
   = panic "coreToStgExpr: breakpoint should not happen"
 
@@ -772,30 +775,31 @@ coreToStgRhs :: FreeVarsInfo            -- Free var info for the scope of the bi
              -> (Id,CoreExpr)
              -> LneM (StgRhs, FreeVarsInfo, LiveInfo, EscVarsSet)
 
-coreToStgRhs scope_fv_info binders (bndr, rhs) = do
-    (new_rhs, rhs_fvs, rhs_escs) <- coreToStgExpr rhs
+coreToStgRhs scope_fv_info binders (bndr, expr) = do
+    (new_rhs, rhs_fvs, rhs_escs) <- coreToStgExpr expr
     lv_info <- freeVarsToLiveVars (binders `minusFVBinders` rhs_fvs)
     return (mkStgRhs rhs_fvs (mkSRT lv_info) bndr_info new_rhs,
             rhs_fvs, lv_info, rhs_escs)
   where
     bndr_info = lookupFVInfo scope_fv_info bndr
 
-mkStgRhs :: FreeVarsInfo -> SRT -> StgBinderInfo -> StgExpr -> StgRhs
+    mkStgRhs :: FreeVarsInfo -> SRT -> StgBinderInfo -> StgExpr -> StgRhs
 
-mkStgRhs _ _ _ (StgConApp con args) = StgRhsCon noCCS con args
+    mkStgRhs _ _ _ (StgConApp con args) = StgRhsCon noCCS con args
 
-mkStgRhs rhs_fvs srt binder_info (StgLam bndrs body)
-  = StgRhsClosure noCCS binder_info
-                  (getFVs rhs_fvs)
-                  ReEntrant
-                  srt bndrs body
+    mkStgRhs rhs_fvs srt binder_info (StgLam bndrs body)
+      = StgRhsClosure noCCS binder_info
+                      (getFVs rhs_fvs)
+                      ReEntrant
+                      srt bndrs body
 
-mkStgRhs rhs_fvs srt binder_info rhs
-  = StgRhsClosure noCCS binder_info
-                  (getFVs rhs_fvs)
-                  upd_flag srt [] rhs
-  where
-   upd_flag = Updatable
+    mkStgRhs rhs_fvs srt binder_info rhs
+      = StgRhsClosure noCCS binder_info
+                      (getFVs rhs_fvs)
+                      upd_flag srt [] rhs
+      where
+       upd_flag | markedAsDontUpdate expr = ReEntrant
+                | otherwise = Updatable
   {-
     SDM: disabled.  Eval/Apply can't handle functions with arity zero very
     well; and making these into simple non-updatable thunks breaks other
@@ -821,6 +825,10 @@ mkStgRhs rhs_fvs srt binder_info rhs
         -- specifically Main.lvl6 in spectral/cryptarithm2.
         -- So no great loss.  KSW 2000-07.
 -}
+
+markedAsDontUpdate :: CoreExpr -> Bool
+markedAsDontUpdate (Tick DontUpdate _) = True
+markedAsDontUpdate _ = False
 \end{code}
 
 Detect thunks which will reduce immediately to PAPs, and make them

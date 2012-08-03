@@ -161,6 +161,10 @@ tcExpr (HsSCC lbl expr) res_ty
   = do { expr' <- tcMonoExpr expr res_ty
        ; return (HsSCC lbl expr') }
 
+tcExpr (HsDontUpdate expr) res_ty 
+  = do { expr' <- tcMonoExpr expr res_ty
+       ; return (HsDontUpdate expr') }
+
 tcExpr (HsTickPragma info expr) res_ty 
   = do { expr' <- tcMonoExpr expr res_ty
        ; return (HsTickPragma info expr') }

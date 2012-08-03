@@ -448,6 +448,9 @@ data Tickish id =
                                 -- Note [substTickish] in CoreSubst.
     }
 
+  -- | A marker for expressions that the programmer wants not to be updateable, if
+  -- they are turned into a thunk.
+  | DontUpdate
   deriving (Eq, Ord, Data, Typeable)
 
 
@@ -463,6 +466,7 @@ tickishCounts :: Tickish id -> Bool
 tickishCounts n@ProfNote{} = profNoteCount n
 tickishCounts HpcTick{}    = True
 tickishCounts Breakpoint{} = True
+tickishCounts DontUpdate{} = True
 
 tickishScoped :: Tickish id -> Bool
 tickishScoped n@ProfNote{} = profNoteScope n
@@ -471,6 +475,7 @@ tickishScoped Breakpoint{} = True
    -- Breakpoints are scoped: eventually we're going to do call
    -- stacks, but also this helps prevent the simplifier from moving
    -- breakpoints around and changing their result type (see #1531).
+tickishScoped DontUpdate{} = False
 
 mkNoTick :: Tickish id -> Tickish id
 mkNoTick n@ProfNote{} = n {profNoteCount = False}
@@ -491,6 +496,7 @@ tickishIsCode _tickish = True  -- all of them for now
 -- 'mkNoScope' and 'mkNoTick' respectively.
 tickishCanSplit :: Tickish Id -> Bool
 tickishCanSplit Breakpoint{} = False
+tickishCanSplit DontUpdate{} = False
 tickishCanSplit _ = True
 \end{code}
 
@@ -1350,6 +1356,7 @@ seqTickish :: Tickish Id -> ()
 seqTickish ProfNote{ profNoteCC = cc } = cc `seq` ()
 seqTickish HpcTick{} = ()
 seqTickish Breakpoint{ breakpointFVs = ids } = seqBndrs ids
+seqTickish DontUpdate{} = ()
 
 seqBndr :: CoreBndr -> ()
 seqBndr b = b `seq` ()

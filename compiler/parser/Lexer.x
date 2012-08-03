@@ -482,6 +482,7 @@ data Token
   | ITline_prag
   | ITscc_prag
   | ITgenerated_prag
+  | ITnoupdate_prag
   | ITcore_prag                 -- hdaume: core annotations
   | ITunpack_prag
   | ITnounpack_prag
@@ -2368,6 +2369,7 @@ oneWordPrags = Map.fromList([("rules", rulePrag),
                            ("deprecated", token ITdeprecated_prag),
                            ("scc", token ITscc_prag),
                            ("generated", token ITgenerated_prag),
+                           ("noupdate", token ITnoupdate_prag),
                            ("core", token ITcore_prag),
                            ("unpack", token ITunpack_prag),
                            ("nounpack", token ITnounpack_prag),

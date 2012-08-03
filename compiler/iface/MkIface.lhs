@@ -1820,6 +1820,7 @@ toIfaceExpr (Tick t e)    = IfaceTick (toIfaceTickish t) (toIfaceExpr e)
 toIfaceTickish :: Tickish Id -> IfaceTickish
 toIfaceTickish (ProfNote cc tick push) = IfaceSCC cc tick push
 toIfaceTickish (HpcTick modl ix)       = IfaceHpcTick modl ix
+toIfaceTickish DontUpdate              = IfaceDontUpdate
 toIfaceTickish _ = panic "toIfaceTickish"
 
 ---------------------
