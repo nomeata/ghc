@@ -22,6 +22,7 @@ import SCCfinal		( stgMassageForProfiling )
 import StgLint		( lintStgBindings )
 import StgStats	        ( showStgStats )
 import UnariseStg       ( unarise )
+import Unshare          ( unshare )
 import SRT		( computeSRTs )
 
 import DynFlags		( DynFlags(..), DynFlag(..), dopt, StgToDo(..),
@@ -80,6 +81,10 @@ stg2stg dflags module_name binds
 	  D_stg_stats ->
 	     trace (showStgStats binds)
 	     end_pass us2 "StgStats" ccs binds
+
+	  D_stg_unshare ->
+	     trace (showStgStats binds)
+	     end_pass us2 "StgUnshare" ccs (unshare dflags binds)
 
 	  StgDoMassageForProfiling ->
 	     {-# SCC "ProfMassage" #-}

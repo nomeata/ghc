@@ -368,6 +368,7 @@ Library
         SimplStg
         StgStats
         UnariseStg
+        Unshare
         Rules
         SpecConstr
         Specialise

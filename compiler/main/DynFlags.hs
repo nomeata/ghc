@@ -300,6 +300,7 @@ data DynFlag
    | Opt_NoHsMain
    | Opt_SplitObjs
    | Opt_StgStats
+   | Opt_StgUnshare
    | Opt_HideAllPackages
    | Opt_PrintBindResult
    | Opt_Haddock
@@ -1411,19 +1412,22 @@ data StgToDo
   -- There's also setStgVarInfo, but its absolute "lastness"
   -- is so critical that it is hardwired in (no flag).
   | D_stg_stats
+  | D_stg_unshare
 
 getStgToDo :: DynFlags -> [StgToDo]
 getStgToDo dflags
-  = todo2
+  = todo3
   where
         stg_stats = dopt Opt_StgStats dflags
+        stg_unshare = dopt Opt_StgUnshare dflags
 
-        todo1 = if stg_stats then [D_stg_stats] else []
+        todo1 = if stg_unshare then [D_stg_unshare] else []
+        todo2 = if stg_stats then D_stg_stats : todo1 else todo1
 
-        todo2 | WayProf `elem` wayNames dflags
-              = StgDoMassageForProfiling : todo1
+        todo3 | WayProf `elem` wayNames dflags
+              = StgDoMassageForProfiling : todo2
               | otherwise
-              = todo1
+              = todo2
 
 {- **********************************************************************
 %*                                                                      *
@@ -1707,6 +1711,7 @@ dynamic_flags = [
 
         ------ Debugging ----------------------------------------------------
   , Flag "dstg-stats"     (NoArg (setDynFlag Opt_StgStats))
+  , Flag "dstg-unshare"     (NoArg (setDynFlag Opt_StgUnshare))
 
   , Flag "ddump-cmm"               (setDumpFlag Opt_D_dump_cmm)
   , Flag "ddump-raw-cmm"           (setDumpFlag Opt_D_dump_raw_cmm)
