@@ -425,7 +425,7 @@ data Tickish id =
                                    -- (i.e. not just a tick)
     }
 
-  -- | A "tick" used by HPC to track the execution of each
+  -- | A \"tick\" used by HPC to track the execution of each
   -- subexpression in the original source code.
   | HpcTick {
       tickModule :: Module,
