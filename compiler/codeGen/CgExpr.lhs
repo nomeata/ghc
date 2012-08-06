@@ -335,15 +335,13 @@ form:
 
 
 \begin{code}
-mkRhsClosure :: DynFlags -> Id -> CostCentreStack -> StgBinderInfo
-             -> [Id] -> UpdateFlag -> [Id] -> GenStgExpr Id Id
-             -> FCode (Id, CgIdInfo)
-mkRhsClosure	dflags bndr cc bi
-		[the_fv]   		-- Just one free var
-		upd_flag		-- Updatable thunk
-		[]			-- A thunk
-		body@(StgCase (StgApp scrutinee [{-no args-}])
-		      _ _ _ srt   -- ignore uniq, etc.
+
+isSelectorThunk :: DynFlags -> [Id] -> [Id] -> StgExpr -> Maybe Int
+isSelectorThunk dflags
+                [the_fv]
+                []
+		(StgCase (StgApp scrutinee [{-no args-}])
+		      _ _ _ _   -- ignore uniq, etc.
 		      (AlgAlt _)
 		      [(DataAlt con, params, _use_mask,
 			    (StgApp selectee [{-no args-}]))])
@@ -356,15 +354,26 @@ mkRhsClosure	dflags bndr cc bi
     -- other constructors in the datatype.  It's still ok to make a selector
     -- thunk in this case, because we *know* which constructor the scrutinee
     -- will evaluate to.
-    setSRT srt $ cgStdRhsClosure bndr cc bi [the_fv] [] body lf_info [StgVarArg the_fv]
+    Just offset_into_int
   where
-    lf_info 		  = mkSelectorLFInfo bndr offset_into_int
-				 (isUpdatable upd_flag)
     (_, params_w_offsets) = layOutDynConstr dflags con (addIdReps params)
 			-- Just want the layout
     maybe_offset	  = assocMaybe params_w_offsets selectee
     Just the_offset 	  = maybe_offset
     offset_into_int       = the_offset - fixedHdrSize dflags
+isSelectorThunk _ _ _ _ = Nothing
+
+mkRhsClosure :: DynFlags -> Id -> CostCentreStack -> StgBinderInfo
+             -> [Id] -> UpdateFlag -> [Id] -> GenStgExpr Id Id
+             -> FCode (Id, CgIdInfo)
+mkRhsClosure	dflags bndr cc bi
+		[the_fv]   		-- Just one free var
+		upd_flag		-- Updatable thunk
+		[]			-- A thunk
+		body@(StgCase _ _ _ _ srt _ _)  -- ignore uniq, etc.
+  | Just offset_into_int <- isSelectorThunk dflags [the_fv] [] body
+  = let lf_info  = mkSelectorLFInfo bndr offset_into_int (isUpdatable upd_flag)
+    in  setSRT srt $ cgStdRhsClosure bndr cc bi [the_fv] [] body lf_info [StgVarArg the_fv]
 \end{code}
 
 Ap thunks
