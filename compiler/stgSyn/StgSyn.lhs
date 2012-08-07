@@ -17,7 +17,7 @@ module StgSyn (
         GenStgBinding(..), GenStgExpr(..), GenStgRhs(..),
         GenStgAlt, AltType(..),
 
-        UpdateFlag(..), isUpdatable,
+        UpdateFlag(..), isUpdatable, isSingleEntry,
 
         StgBinderInfo,
         noBinderInfo, stgSatOcc, stgUnsatOcc, satCallsOnly,
@@ -552,6 +552,7 @@ safely be blackholed.
 
 \begin{code}
 data UpdateFlag = ReEntrant | Updatable | SingleEntry
+  deriving (Eq, Ord)
 
 instance Outputable UpdateFlag where
     ppr u = char $ case u of
@@ -563,6 +564,11 @@ isUpdatable :: UpdateFlag -> Bool
 isUpdatable ReEntrant   = False
 isUpdatable SingleEntry = False
 isUpdatable Updatable   = True
+
+isSingleEntry :: UpdateFlag -> Bool
+isSingleEntry ReEntrant   = False
+isSingleEntry SingleEntry = True
+isSingleEntry Updatable   = False
 \end{code}
 
 %************************************************************************

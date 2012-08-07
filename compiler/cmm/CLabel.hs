@@ -119,6 +119,7 @@ import FastString
 import DynFlags
 import Platform
 import UniqSet
+import StgSyn (UpdateFlag(..))
 
 -- -----------------------------------------------------------------------------
 -- The CLabel type
@@ -301,11 +302,11 @@ data CaseLabelInfo
 
 
 data RtsLabelInfo
-  = RtsSelectorInfoTable Bool{-updatable-} Int{-offset-}  -- ^ Selector thunks
-  | RtsSelectorEntry     Bool{-updatable-} Int{-offset-}
+  = RtsSelectorInfoTable UpdateFlag Int{-offset-}  -- ^ Selector thunks
+  | RtsSelectorEntry     UpdateFlag Int{-offset-}
 
-  | RtsApInfoTable       Bool{-updatable-} Int{-arity-}    -- ^ AP thunks
-  | RtsApEntry           Bool{-updatable-} Int{-arity-}
+  | RtsApInfoTable       UpdateFlag Int{-arity-}    -- ^ AP thunks
+  | RtsApEntry           UpdateFlag Int{-arity-}
 
   | RtsPrimOp PrimOp
   | RtsApFast     FastString    -- ^ _fast versions of generic apply
@@ -426,13 +427,13 @@ mkCmmGcPtrLabel     pkg str     = CmmLabel pkg str CmmGcPtr
 mkRtsPrimOpLabel :: PrimOp -> CLabel
 mkRtsPrimOpLabel primop         = RtsLabel (RtsPrimOp primop)
 
-mkSelectorInfoLabel  :: Bool -> Int -> CLabel
-mkSelectorEntryLabel :: Bool -> Int -> CLabel
+mkSelectorInfoLabel  :: UpdateFlag -> Int -> CLabel
+mkSelectorEntryLabel :: UpdateFlag -> Int -> CLabel
 mkSelectorInfoLabel  upd off    = RtsLabel (RtsSelectorInfoTable upd off)
 mkSelectorEntryLabel upd off    = RtsLabel (RtsSelectorEntry     upd off)
 
-mkApInfoTableLabel :: Bool -> Int -> CLabel
-mkApEntryLabel     :: Bool -> Int -> CLabel
+mkApInfoTableLabel :: UpdateFlag -> Int -> CLabel
+mkApEntryLabel     :: UpdateFlag -> Int -> CLabel
 mkApInfoTableLabel   upd off    = RtsLabel (RtsApInfoTable       upd off)
 mkApEntryLabel       upd off    = RtsLabel (RtsApEntry           upd off)
 
@@ -995,30 +996,35 @@ pprCLbl (RtsLabel (RtsApFast str))   = ftext str <> ptext (sLit "_fast")
 
 pprCLbl (RtsLabel (RtsSelectorInfoTable upd_reqd offset))
   = hcat [ptext (sLit "stg_sel_"), text (show offset),
-                ptext (if upd_reqd
-                        then (sLit "_upd_info")
-                        else (sLit "_noupd_info"))
+                ptext (case upd_reqd of
+                    Updatable   -> sLit "_upd_info"
+                    SingleEntry -> sLit "_noupd_info"
+                    ReEntrant   -> error "stg_sel_*_noupd_info Not yet supported")
+
         ]
 
 pprCLbl (RtsLabel (RtsSelectorEntry upd_reqd offset))
   = hcat [ptext (sLit "stg_sel_"), text (show offset),
-                ptext (if upd_reqd
-                        then (sLit "_upd_entry")
-                        else (sLit "_noupd_entry"))
+                ptext (case upd_reqd of
+                    Updatable   -> sLit "_upd_info"
+                    SingleEntry -> sLit "_noupd_info"
+                    ReEntrant   -> error "stg_sel_*_noupd_info Not yet supported")
         ]
 
 pprCLbl (RtsLabel (RtsApInfoTable upd_reqd arity))
   = hcat [ptext (sLit "stg_ap_"), text (show arity),
-                ptext (if upd_reqd
-                        then (sLit "_upd_info")
-                        else (sLit "_noupd_info"))
+                ptext (case upd_reqd of
+                    Updatable   -> sLit "_upd_info"
+                    SingleEntry -> sLit "_noupd_info"
+                    ReEntrant   -> error "stg_ap_*_noupd_info Not yet supported")
         ]
 
 pprCLbl (RtsLabel (RtsApEntry upd_reqd arity))
   = hcat [ptext (sLit "stg_ap_"), text (show arity),
-                ptext (if upd_reqd
-                        then (sLit "_upd_entry")
-                        else (sLit "_noupd_entry"))
+                ptext (case upd_reqd of
+                    Updatable   -> sLit "_upd_info"
+                    SingleEntry -> sLit "_noupd_info"
+                    ReEntrant   -> error "stg_ap_*_noupd_info Not yet supported")
         ]
 
 pprCLbl (CmmLabel _ fs CmmInfo)

@@ -137,7 +137,7 @@ data LambdaFormInfo
   | LFThunk		-- Thunk (zero arity)
 	TopLevelFlag
 	!Bool		-- True <=> no free vars
-	!Bool		-- True <=> updatable (i.e., *not* single-entry)
+	!UpdateFlag     -- reentrant, updateable or single-entry
 	StandardFormInfo
 	!Bool		-- True <=> *might* be a function type
 
@@ -225,7 +225,7 @@ mkLFThunk :: Type -> TopLevelFlag -> [Id] -> UpdateFlag -> LambdaFormInfo
 mkLFThunk thunk_ty top fvs upd_flag
   = ASSERT( not (isUpdatable upd_flag) || not (isUnLiftedType thunk_ty) )
     LFThunk top (null fvs) 
-	    (isUpdatable upd_flag)
+	    upd_flag
 	    NonStandardThunk 
 	    (might_be_a_function thunk_ty)
 
@@ -246,7 +246,7 @@ mkConLFInfo :: DataCon -> LambdaFormInfo
 mkConLFInfo con = LFCon con
 
 -------------
-mkSelectorLFInfo :: Id -> Int -> Bool -> LambdaFormInfo
+mkSelectorLFInfo :: Id -> Int -> UpdateFlag -> LambdaFormInfo
 mkSelectorLFInfo id offset updatable
   = LFThunk NotTopLevel False updatable (SelectorThunk offset) 
 	(might_be_a_function (idType id))
@@ -254,7 +254,7 @@ mkSelectorLFInfo id offset updatable
 -------------
 mkApLFInfo :: Id -> UpdateFlag -> Arity -> LambdaFormInfo
 mkApLFInfo id upd_flag arity
-  = LFThunk NotTopLevel (arity == 0) (isUpdatable upd_flag) (ApThunk arity)
+  = LFThunk NotTopLevel (arity == 0) upd_flag (ApThunk arity)
 	(might_be_a_function (idType id))
 
 -------------
@@ -402,7 +402,7 @@ nodeMustPointToIt _ (LFCon _) = True
 	-- 27/11/92.
 
 nodeMustPointToIt dflags (LFThunk _ no_fvs updatable NonStandardThunk _)
-  = updatable || not no_fvs || dopt Opt_SccProfilingOn dflags
+  = isUpdatable updatable || not no_fvs || dopt Opt_SccProfilingOn dflags
 	  -- For the non-updatable (single-entry case):
 	  --
 	  -- True if has fvs (in which case we need access to them, and we
@@ -498,7 +498,7 @@ getCallMethod dflags name caf (LFThunk _ _ updatable std_form_info is_fun) n_arg
 		-- is the fast-entry code]
 
   -- Since is_fun is False, we are *definitely* looking at a data value
-  | updatable || doingTickyProfiling dflags -- to catch double entry
+  | isUpdatable updatable || doingTickyProfiling dflags -- to catch double entry
       {- OLD: || opt_SMP
 	 I decided to remove this, because in SMP mode it doesn't matter
 	 if we enter the same thunk multiple times, so the optimisation
@@ -734,18 +734,19 @@ closureUpdReqd :: ClosureInfo -> Bool
 closureUpdReqd ClosureInfo{ closureLFInfo = lf_info } = lfUpdatable lf_info
 
 lfUpdatable :: LambdaFormInfo -> Bool
-lfUpdatable (LFThunk _ _ upd _ _)  = upd
+lfUpdatable (LFThunk _ _ upd _ _)  = isUpdatable upd
 lfUpdatable LFBlackHole 	   = True
 	-- Black-hole closures are allocated to receive the results of an
 	-- alg case with a named default... so they need to be updated.
 lfUpdatable _ = False
 
 closureSingleEntry :: ClosureInfo -> Bool
-closureSingleEntry (ClosureInfo { closureLFInfo = LFThunk _ _ upd _ _}) = not upd
+closureSingleEntry (ClosureInfo { closureLFInfo = LFThunk _ _ upd _ _}) = isSingleEntry upd
 closureSingleEntry _ = False
 
 closureReEntrant :: ClosureInfo -> Bool
 closureReEntrant (ClosureInfo { closureLFInfo = LFReEntrant _ _ _ _ }) = True
+-- TODO: What about LFThunk _ _ ReEntrant
 closureReEntrant _ = False
 
 closureFunInfo :: ClosureInfo -> Maybe (RepArity, ArgDescr)
@@ -812,7 +813,7 @@ mkClosureInfoTableLabel id lf_info
        -- invariants in CorePrep anything else gets eta expanded.
 
 
-thunkEntryLabel :: DynFlags -> Name -> CafInfo -> StandardFormInfo -> Bool -> CLabel
+thunkEntryLabel :: DynFlags -> Name -> CafInfo -> StandardFormInfo -> UpdateFlag -> CLabel
 -- thunkEntryLabel is a local help function, not exported.  It's used from
 -- getCallMethod.
 thunkEntryLabel dflags _thunk_id _ (ApThunk arity) upd_flag
@@ -822,12 +823,12 @@ thunkEntryLabel dflags _thunk_id _ (SelectorThunk offset) upd_flag
 thunkEntryLabel dflags thunk_id c _ _
   = enterIdLabel dflags thunk_id c
 
-enterApLabel :: DynFlags -> Bool -> Arity -> CLabel
+enterApLabel :: DynFlags -> UpdateFlag -> Arity -> CLabel
 enterApLabel dflags is_updatable arity
   | tablesNextToCode dflags = mkApInfoTableLabel is_updatable arity
   | otherwise               = mkApEntryLabel is_updatable arity
 
-enterSelectorLabel :: DynFlags -> Bool -> WordOff -> CLabel
+enterSelectorLabel :: DynFlags -> UpdateFlag -> WordOff -> CLabel
 enterSelectorLabel dflags upd_flag offset
   | tablesNextToCode dflags = mkSelectorInfoLabel upd_flag offset
   | otherwise               = mkSelectorEntryLabel upd_flag offset

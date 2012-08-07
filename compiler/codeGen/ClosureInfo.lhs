@@ -168,7 +168,7 @@ data LambdaFormInfo
   | LFThunk		-- Thunk (zero arity)
 	TopLevelFlag
 	!Bool		-- True <=> no free vars
-	!Bool		-- True <=> updatable (i.e., *not* single-entry)
+	!UpdateFlag     -- reentrant, updateable or single-entry
 	StandardFormInfo
 	!Bool		-- True <=> *might* be a function type
 
@@ -378,7 +378,7 @@ mkLFThunk :: Type -> TopLevelFlag -> [Var] -> UpdateFlag -> LambdaFormInfo
 mkLFThunk thunk_ty top fvs upd_flag
   = ASSERT2( not (isUpdatable upd_flag) || not (isUnLiftedType thunk_ty), ppr thunk_ty $$ ppr fvs )
     LFThunk top (null fvs) 
-	    (isUpdatable upd_flag)
+	    upd_flag
 	    NonStandardThunk 
 	    (might_be_a_function thunk_ty)
 
@@ -404,14 +404,14 @@ maybeIsLFCon :: LambdaFormInfo -> Maybe DataCon
 maybeIsLFCon (LFCon con) = Just con
 maybeIsLFCon _ = Nothing
 
-mkSelectorLFInfo :: Id -> WordOff -> Bool -> LambdaFormInfo
+mkSelectorLFInfo :: Id -> WordOff -> UpdateFlag -> LambdaFormInfo
 mkSelectorLFInfo id offset updatable
   = LFThunk NotTopLevel False updatable (SelectorThunk offset) 
 	(might_be_a_function (idType id))
 
 mkApLFInfo :: Id -> UpdateFlag -> RepArity -> LambdaFormInfo
 mkApLFInfo id upd_flag arity
-  = LFThunk NotTopLevel (arity == 0) (isUpdatable upd_flag) (ApThunk arity)
+  = LFThunk NotTopLevel (arity == 0) upd_flag (ApThunk arity)
 	(might_be_a_function (idType id))
 \end{code}
 
@@ -579,7 +579,7 @@ nodeMustPointToIt _ (LFCon _) = True
 	-- 27/11/92.
 
 nodeMustPointToIt dflags (LFThunk _ no_fvs updatable NonStandardThunk _)
-  = updatable || not no_fvs || dopt Opt_SccProfilingOn dflags
+  = isUpdatable updatable || not no_fvs || dopt Opt_SccProfilingOn dflags
 	  -- For the non-updatable (single-entry case):
 	  --
 	  -- True if has fvs (in which case we need access to them, and we
@@ -897,7 +897,7 @@ closureUpdReqd ClosureInfo{ closureLFInfo = lf_info } = lfUpdatable lf_info
 closureUpdReqd ConInfo{} = False
 
 lfUpdatable :: LambdaFormInfo -> Bool
-lfUpdatable (LFThunk _ _ upd _ _)  = upd
+lfUpdatable (LFThunk _ _ upd _ _)  = isUpdatable upd
 lfUpdatable LFBlackHole 	   = True
 	-- Black-hole closures are allocated to receive the results of an
 	-- alg case with a named default... so they need to be updated.
@@ -908,11 +908,12 @@ closureIsThunk ClosureInfo{ closureLFInfo = lf_info } = isLFThunk lf_info
 closureIsThunk ConInfo{} = False
 
 closureSingleEntry :: ClosureInfo -> Bool
-closureSingleEntry (ClosureInfo { closureLFInfo = LFThunk _ _ upd _ _}) = not upd
+closureSingleEntry (ClosureInfo { closureLFInfo = LFThunk _ _ upd _ _}) = isSingleEntry upd
 closureSingleEntry _ = False
 
 closureReEntrant :: ClosureInfo -> Bool
 closureReEntrant (ClosureInfo { closureLFInfo = LFReEntrant _ _ _ _ }) = True
+-- TODO: What about LFThunk _ _ ReEntrant
 closureReEntrant _ = False
 
 isConstrClosure_maybe :: ClosureInfo -> Maybe DataCon

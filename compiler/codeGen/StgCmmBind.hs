@@ -254,7 +254,7 @@ mkRhsClosure    dflags bndr _cc _bi
     cgRhsStdThunk bndr lf_info [StgVarArg the_fv]
   where
     lf_info               = mkSelectorLFInfo bndr offset_into_int
-                                 (isUpdatable upd_flag)
+                                 upd_flag
     (_, _, params_w_offsets) = mkVirtConstrOffsets dflags (addIdReps params)
                                -- Just want the layout
     maybe_offset          = assocMaybe params_w_offsets (NonVoid selectee)
