@@ -154,6 +154,49 @@ SELECTOR_CODE_NOUPD(13)
 SELECTOR_CODE_NOUPD(14)
 SELECTOR_CODE_NOUPD(15)
 
+#define SELECTOR_CODE_REENT(offset) \
+  INFO_TABLE_RET(stg_sel_ret_##offset##_reent, RET_SMALL, RET_PARAMS)	\
+  {									\
+      R1 = StgClosure_payload(UNTAG(R1),offset);			\
+      GET_SAVED_CCCS;							\
+      Sp = Sp + SIZEOF_StgHeader;					\
+      ENTER();								\
+  }									\
+									\
+  INFO_TABLE_SELECTOR(stg_sel_##offset##_reent, offset, THUNK_SELECTOR, "stg_sel_reent", "stg_sel_reent")\
+  {									\
+      TICK_ENT_DYN_THK();						\
+      STK_CHK_NP(NOUPD_FRAME_SIZE);					\
+      LDV_ENTER(R1);							\
+      TICK_UPDF_OMITTED();						\
+      ENTER_CCS_THUNK(R1);						\
+      SAVE_CCCS(NOUPD_FRAME_SIZE);					\
+      W_[Sp-NOUPD_FRAME_SIZE] = stg_sel_ret_##offset##_reent_info;	\
+      Sp = Sp - NOUPD_FRAME_SIZE;					\
+      R1 = StgThunk_payload(R1,0);					\
+      if (GETTAG(R1) != 0) {                                            \
+          jump RET_LBL(stg_sel_ret_##offset##_reent);		        \
+      }                                                                 \
+      jump %GET_ENTRY(R1);						\
+  }
+
+SELECTOR_CODE_REENT(0)
+SELECTOR_CODE_REENT(1)
+SELECTOR_CODE_REENT(2)
+SELECTOR_CODE_REENT(3)
+SELECTOR_CODE_REENT(4)
+SELECTOR_CODE_REENT(5)
+SELECTOR_CODE_REENT(6)
+SELECTOR_CODE_REENT(7)
+SELECTOR_CODE_REENT(8)
+SELECTOR_CODE_REENT(9)
+SELECTOR_CODE_REENT(10)
+SELECTOR_CODE_REENT(11)
+SELECTOR_CODE_REENT(12)
+SELECTOR_CODE_REENT(13)
+SELECTOR_CODE_REENT(14)
+SELECTOR_CODE_REENT(15)
+
 /* -----------------------------------------------------------------------------
    Apply thunks
 

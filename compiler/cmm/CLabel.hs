@@ -999,16 +999,15 @@ pprCLbl (RtsLabel (RtsSelectorInfoTable upd_reqd offset))
                 ptext (case upd_reqd of
                     Updatable   -> sLit "_upd_info"
                     SingleEntry -> sLit "_noupd_info"
-                    ReEntrant   -> error "stg_sel_*_noupd_info Not yet supported")
-
+                    ReEntrant   -> sLit "_reent_info")
         ]
 
 pprCLbl (RtsLabel (RtsSelectorEntry upd_reqd offset))
   = hcat [ptext (sLit "stg_sel_"), text (show offset),
                 ptext (case upd_reqd of
-                    Updatable   -> sLit "_upd_info"
-                    SingleEntry -> sLit "_noupd_info"
-                    ReEntrant   -> error "stg_sel_*_noupd_info Not yet supported")
+                    Updatable   -> sLit "_upd_entry"
+                    SingleEntry -> sLit "_noupd_entry"
+                    ReEntrant   -> sLit "_reent_entry")
         ]
 
 pprCLbl (RtsLabel (RtsApInfoTable upd_reqd arity))
@@ -1022,9 +1021,9 @@ pprCLbl (RtsLabel (RtsApInfoTable upd_reqd arity))
 pprCLbl (RtsLabel (RtsApEntry upd_reqd arity))
   = hcat [ptext (sLit "stg_ap_"), text (show arity),
                 ptext (case upd_reqd of
-                    Updatable   -> sLit "_upd_info"
-                    SingleEntry -> sLit "_noupd_info"
-                    ReEntrant   -> error "stg_ap_*_noupd_info Not yet supported")
+                    Updatable   -> sLit "_upd_entry"
+                    SingleEntry -> sLit "_noupd_entry"
+                    ReEntrant   -> error "stg_ap_*_reent_entry not yet supported")
         ]
 
 pprCLbl (CmmLabel _ fs CmmInfo)
