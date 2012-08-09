@@ -301,6 +301,7 @@ data DynFlag
    | Opt_SplitObjs
    | Opt_StgStats
    | Opt_StgUnshare
+   | Opt_UnshareSelectors
    | Opt_HideAllPackages
    | Opt_PrintBindResult
    | Opt_Haddock
@@ -1844,6 +1845,7 @@ dynamic_flags = [
   , Flag "fstrictness-before"          (intSuffix (\n d -> d{ strictnessBefore = n : strictnessBefore d }))
   , Flag "ffloat-lam-args"             (intSuffix (\n d -> d{ floatLamArgs = Just n }))
   , Flag "ffloat-all-lams"             (noArg (\d -> d{ floatLamArgs = Nothing }))
+  , Flag "funshare-selectors"          (NoArg (setDynFlag Opt_UnshareSelectors))
 
         ------ Profiling ----------------------------------------------------
 

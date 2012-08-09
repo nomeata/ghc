@@ -368,12 +368,16 @@ mkRhsClosure :: DynFlags -> Id -> CostCentreStack -> StgBinderInfo
              -> FCode (Id, CgIdInfo)
 mkRhsClosure	dflags bndr cc bi
 		[the_fv]   		-- Just one free var
-		_upd_flag		-- Updatable thunk
+		upd_flag		-- Updatable thunk
 		[]			-- A thunk
 		body@(StgCase _ _ _ _ srt _ _)  -- ignore uniq, etc.
   | Just offset_into_int <- isSelectorThunk dflags [the_fv] [] body
-  = let lf_info  = mkSelectorLFInfo bndr offset_into_int ReEntrant
+  = let lf_info  = mkSelectorLFInfo bndr offset_into_int upd_flag'
     in  setSRT srt $ cgStdRhsClosure bndr cc bi [the_fv] [] body lf_info [StgVarArg the_fv]
+  where
+    upd_flag' = if upd_flag == Updatable && dopt Opt_UnshareSelectors dflags
+                then ReEntrant
+                else upd_flag
 \end{code}
 
 Ap thunks
