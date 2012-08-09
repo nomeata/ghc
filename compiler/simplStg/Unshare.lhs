@@ -33,7 +33,7 @@ unshareRhs dflags rhs = case rhs of
     -> StgRhsCon ccs con args
 
 calledFun :: StgExpr -> Maybe Id
-calledFun e = case e of
+calledFun expr = case expr of
   StgApp f _args -> Just f
   StgLit _l -> Nothing
   StgConApp _dc _args -> Nothing
@@ -41,7 +41,7 @@ calledFun e = case e of
   StgLam _xs e -> calledFun e
   StgCase _e _case_lives _alts_lives _bndr _srt _alt_ty [(_, _, _, e')] -> calledFun e'
   StgCase _e _case_lives _alts_lives _bndr _srt _alt_ty _alts -> Nothing
-  StgLet _bind _e -> calledFun e
+  StgLet _bind e -> calledFun e
   StgLetNoEscape _live_in_let _live_in_bind _bind e
     -> calledFun e
   StgSCC _cc _bump_entry _push_cc e -> calledFun e
