@@ -220,6 +220,23 @@ RTS_ENTRY(stg_sel_13_noupd);
 RTS_ENTRY(stg_sel_14_noupd);
 RTS_ENTRY(stg_sel_15_noupd);
 
+RTS_ENTRY(stg_sel_0_reent);
+RTS_ENTRY(stg_sel_1_reent);
+RTS_ENTRY(stg_sel_2_reent);
+RTS_ENTRY(stg_sel_3_reent);
+RTS_ENTRY(stg_sel_4_reent);
+RTS_ENTRY(stg_sel_5_reent);
+RTS_ENTRY(stg_sel_6_reent);
+RTS_ENTRY(stg_sel_7_reent);
+RTS_ENTRY(stg_sel_8_reent);
+RTS_ENTRY(stg_sel_9_reent);
+RTS_ENTRY(stg_sel_10_reent);
+RTS_ENTRY(stg_sel_11_reent);
+RTS_ENTRY(stg_sel_12_reent);
+RTS_ENTRY(stg_sel_13_reent);
+RTS_ENTRY(stg_sel_14_reent);
+RTS_ENTRY(stg_sel_15_reent);
+
 /* standard ap thunks */
 
 RTS_THUNK(stg_ap_1_upd);

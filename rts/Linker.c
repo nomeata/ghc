@@ -1269,6 +1269,22 @@ typedef struct _RtsSymbolVal {
       SymI_HasProto(stg_sel_7_upd_info)                 \
       SymI_HasProto(stg_sel_8_upd_info)                 \
       SymI_HasProto(stg_sel_9_upd_info)                 \
+      SymI_HasProto(stg_sel_0_reent_info)                 \
+      SymI_HasProto(stg_sel_10_reent_info)                \
+      SymI_HasProto(stg_sel_11_reent_info)                \
+      SymI_HasProto(stg_sel_12_reent_info)                \
+      SymI_HasProto(stg_sel_13_reent_info)                \
+      SymI_HasProto(stg_sel_14_reent_info)                \
+      SymI_HasProto(stg_sel_15_reent_info)                \
+      SymI_HasProto(stg_sel_1_reent_info)                 \
+      SymI_HasProto(stg_sel_2_reent_info)                 \
+      SymI_HasProto(stg_sel_3_reent_info)                 \
+      SymI_HasProto(stg_sel_4_reent_info)                 \
+      SymI_HasProto(stg_sel_5_reent_info)                 \
+      SymI_HasProto(stg_sel_6_reent_info)                 \
+      SymI_HasProto(stg_sel_7_reent_info)                 \
+      SymI_HasProto(stg_sel_8_reent_info)                 \
+      SymI_HasProto(stg_sel_9_reent_info)                 \
       SymI_HasProto(stg_upd_frame_info)                 \
       SymI_HasProto(stg_bh_upd_frame_info)              \
       SymI_HasProto(suspendThread)                      \
