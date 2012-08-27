@@ -6,6 +6,10 @@
 --
 -- Author(s): Simon Marlow, Sven Panne 1997, 1998, 1999
 -- ---------------------------------------------------------------------------
+{-
+Attention: When modifying this file, edit Parser.y.pp, _not_ Parser.y (which is
+generated from the former)
+-}
 
 {
 {-# LANGUAGE BangPatterns #-} -- required for versions of Happy before 1.18.6
