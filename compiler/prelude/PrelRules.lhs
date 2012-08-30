@@ -720,7 +720,9 @@ builtinRules
      BuiltinRule { ru_name = fsLit "EqString", ru_fn = eqStringName,
                    ru_nargs = 2, ru_try = \_ -> match_eq_string },
      BuiltinRule { ru_name = fsLit "Inline", ru_fn = inlineIdName,
-                   ru_nargs = 2, ru_try = \_ -> match_inline }]
+                   ru_nargs = 2, ru_try = \_ -> match_inline },
+     BuiltinRule { ru_name = fsLit "Noupdate", ru_fn = noupdateIdName,
+                   ru_nargs = 2, ru_try = \_ -> match_noupdate }]
  ++ builtinIntegerRules
 
 builtinIntegerRules :: [CoreRule]
@@ -882,6 +884,10 @@ match_inline _ (Type _ : e : _)
   = Just (mkApps unf args1)
 
 match_inline _ _ = Nothing
+
+match_noupdate :: IdUnfoldingFun -> [Expr CoreBndr] -> Maybe (Expr CoreBndr)
+match_noupdate _ (Type _ : e : _) = Just (Tick DontUpdate e)
+match_noupdate _ _ = Nothing
 
 -------------------------------------------------
 -- Integer rules

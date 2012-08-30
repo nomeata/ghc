@@ -245,7 +245,7 @@ basicKnownKeyNames
         wordTyConName, word8TyConName, word16TyConName, word32TyConName, word64TyConName,
 
         -- Others
-        otherwiseIdName, inlineIdName,
+        otherwiseIdName, inlineIdName, noupdateIdName,
         eqStringName, assertName, breakpointName, breakpointCondName,
         breakpointAutoName,  opaqueTyConName,
         assertErrorName, runSTRepName,
@@ -769,6 +769,10 @@ stringTyConName         = tcQual  gHC_BASE (fsLit "String") stringTyConKey
 -- The 'inline' function
 inlineIdName :: Name
 inlineIdName            = varQual gHC_MAGIC (fsLit "inline") inlineIdKey
+
+-- The 'noupdate' function
+noupdateIdName :: Name
+noupdateIdName          = varQual gHC_MAGIC (fsLit "noupdate") noupdateIdKey
 
 -- The 'undefined' function. Used by supercompilation.
 undefinedName :: Name
@@ -1626,6 +1630,8 @@ checkDotnetResNameIdKey       = mkPreludeMiscIdUnique 154
 undefinedKey :: Unique
 undefinedKey                  = mkPreludeMiscIdUnique 155
 
+noupdateIdKey :: Unique
+noupdateIdKey                 = mkPreludeMiscIdUnique 156
 \end{code}
 
 Certain class operations from Prelude classes.  They get their own

@@ -32,7 +32,7 @@ module MkId (
         -- And some particular Ids; see below for why they are wired in
         wiredInIds, ghcPrimIds,
         unsafeCoerceName, unsafeCoerceId, realWorldPrimId, 
-        voidArgId, nullAddrId, seqId, lazyId, lazyIdKey,
+        voidArgId, nullAddrId, seqId, lazyId, lazyIdKey, noupdateIdKey,
         coercionTokenId,
 
 	-- Re-export error Ids
@@ -130,7 +130,8 @@ ghcPrimIds
     realWorldPrimId,
     unsafeCoerceId,
     nullAddrId,
-    seqId
+    seqId,
+    noupdateId -- Here for now to avoid changing base
     ]
 \end{code}
 
@@ -876,13 +877,14 @@ they can unify with both unlifted and lifted types.  Hence we provide
 another gun with which to shoot yourself in the foot.
 
 \begin{code}
-lazyIdName, unsafeCoerceName, nullAddrName, seqName, realWorldName, coercionTokenName :: Name
+lazyIdName, unsafeCoerceName, nullAddrName, seqName, realWorldName, coercionTokenName, noupdateName :: Name
 unsafeCoerceName  = mkWiredInIdName gHC_PRIM (fsLit "unsafeCoerce#") unsafeCoerceIdKey  unsafeCoerceId
 nullAddrName      = mkWiredInIdName gHC_PRIM (fsLit "nullAddr#")     nullAddrIdKey      nullAddrId
 seqName           = mkWiredInIdName gHC_PRIM (fsLit "seq")           seqIdKey           seqId
 realWorldName     = mkWiredInIdName gHC_PRIM (fsLit "realWorld#")    realWorldPrimIdKey realWorldPrimId
 lazyIdName        = mkWiredInIdName gHC_BASE (fsLit "lazy")         lazyIdKey           lazyId
 coercionTokenName = mkWiredInIdName gHC_PRIM (fsLit "coercionToken#") coercionTokenIdKey coercionTokenId
+noupdateName      = mkWiredInIdName gHC_PRIM (fsLit "noupdate")      noupdateIdKey noupdateId
 \end{code}
 
 \begin{code}
@@ -945,6 +947,12 @@ match_seq_of_cast _ _ _ = Nothing
 ------------------------------------------------
 lazyId :: Id	-- See Note [lazyId magic]
 lazyId = pcMiscPrelId lazyIdName ty info
+  where
+    info = noCafIdInfo
+    ty  = mkForAllTys [alphaTyVar] (mkFunTy alphaTy alphaTy)
+
+noupdateId :: Id
+noupdateId = pcMiscPrelId noupdateName ty info
   where
     info = noCafIdInfo
     ty  = mkForAllTys [alphaTyVar] (mkFunTy alphaTy alphaTy)

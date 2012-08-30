@@ -2090,6 +2090,9 @@ pseudoop   "inline"
         its definition, (a) so that GHC guarantees to expose its unfolding regardless
         of size, and (b) so that you have control over exactly what is inlined. }
 
+pseudoop   "noupdate"
+   a -> a
+
 pseudoop   "lazy"
    a -> a
    { The {\tt lazy} function restrains strictness analysis a little. The call
