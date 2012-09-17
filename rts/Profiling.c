@@ -354,6 +354,30 @@ enterFunCurShorter (CostCentreStack *ccsapp, CostCentreStack *ccsfn, StgWord n)
     }
 }
 
+// manualy enable to debug enterFunCCS (quite verbose)
+//#define DEBUG_ENTERFUNCCS
+#if defined(DEBUG) && defined(DEBUG_ENTERFUNCCS)
+void _enterFunCCS (StgRegTable *reg, CostCentreStack *ccsfn);
+void
+enterFunCCS (StgRegTable *reg, CostCentreStack *ccsfn)
+#define enterFunCCS _enterFunCCS
+{
+    IF_DEBUG(prof,
+	     traceBegin("enterFunCCS: reg->rCCCS = ");
+	     debugCCS(reg->rCCCS);
+	     traceBegin(", ccsfn= ");
+	     debugCCS(ccsfn);
+	     traceEnd(););
+
+    enterFunCCS(reg, ccsfn);
+
+    IF_DEBUG(prof,
+	     traceBegin("enterFunCCS resulting in ");
+	     debugCCS(reg->rCCCS);
+	     traceEnd(););
+}
+#endif
+
 void enterFunCCS (StgRegTable *reg, CostCentreStack *ccsfn)
 {
     CostCentreStack *ccsapp;
