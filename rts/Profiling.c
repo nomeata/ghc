@@ -528,7 +528,8 @@ appendCCS ( CostCentreStack *ccs1, CostCentreStack *ccs2 )
 
 // Pick one:
 // #define RECURSION_DROPS
-#define RECURSION_TRUNCATES
+// #define RECURSION_TRUNCATES
+ #define RECURSION_DETECT_LOOP
 
 CostCentreStack *
 pushCostCentre (CostCentreStack *ccs, CostCentre *cc)
@@ -580,7 +581,7 @@ pushCostCentre (CostCentreStack *ccs, CostCentre *cc)
                     //   - ignore this push, return the same stack.
                     //
                     CostCentreStack *new_ccs;
-#if defined(RECURSION_TRUNCATES)
+#if defined(RECURSION_TRUNCATES) || defined(RECURSION_DETECT_LOOP)
                     new_ccs = temp_ccs;
 #else // defined(RECURSION_DROPS)
                     new_ccs = ccs;
@@ -599,6 +600,40 @@ pushCostCentre (CostCentreStack *ccs, CostCentre *cc)
     return ret;
 }
 
+#if defined(RECURSION_DETECT_LOOP)
+static CostCentreStack *
+checkLoop (CostCentreStack *ccs, CostCentre *cc)
+{
+    CostCentreStack *init_start, *top_seg, *bottom_seg;
+
+    init_start = ccs;
+    // Find previous instances of cc on the stack
+    while (init_start != EMPTY_STACK) {
+        if (init_start->cc == cc) {
+            // Compare the stack from here with the the top
+            top_seg = ccs;
+            bottom_seg = init_start->prevStack;
+            while (bottom_seg != EMPTY_STACK && top_seg->cc == bottom_seg->cc) {
+                // top_set != EMPTY_STACK as bottom_seg is definitely below of
+                // it and not empty
+                top_seg = top_seg->prevStack;
+                bottom_seg = bottom_seg->prevStack;
+            }
+
+            if (top_seg == init_start) {
+                // We found that the segment above init_start equals the segment below it,
+                // so we truncate to it.
+                return init_start;
+            }
+            // Otherwise, we try to find a larger repeating initial segment.
+        }
+        init_start = init_start->prevStack;
+    }
+    return NULL;
+}
+
+#else // defined(RECURSION_DETECT_LOOP)
+
 static CostCentreStack *
 checkLoop (CostCentreStack *ccs, CostCentre *cc)
 {
@@ -609,6 +644,7 @@ checkLoop (CostCentreStack *ccs, CostCentre *cc)
     }
     return NULL;
 }
+#endif // defined(RECURSION_DETECT_LOOP)
 
 static CostCentreStack *
 actualPush (CostCentreStack *ccs, CostCentre *cc)
