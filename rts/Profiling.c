@@ -482,7 +482,13 @@ pushCostCentre ( CostCentreStack *ccs, CostCentre *cc )
 	     debugCCS(ccs);
 	     traceEnd(););
 	     
-    return pushCostCentre(ccs,cc);
+    ccs = pushCostCentre(ccs,cc);
+
+    IF_DEBUG(prof,
+	     traceBegin("resulting in ");
+	     debugCCS(ccs);
+	     traceEnd(););
+    return ccs;
 }
 #endif
 
