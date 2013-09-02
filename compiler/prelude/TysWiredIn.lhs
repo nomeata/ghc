@@ -67,6 +67,7 @@ module TysWiredIn (
 
         -- * Equality predicates
         eqTyCon_RDR, eqTyCon, eqTyConName, eqBoxDataCon,
+        eqReprBoxTyCon, eqReprBoxDataCon,
 
     ) where
 
@@ -144,6 +145,7 @@ wiredInTyCons = [ unitTyCon     -- Not treated like other tuples, because
               , listTyCon
               , parrTyCon
               , eqTyCon
+              , eqReprBoxTyCon
               , typeNatKindCon
               , typeSymbolKindCon
               ]
@@ -168,6 +170,10 @@ mkWiredInDataConName built_in modu fs unique datacon
 eqTyConName, eqBoxDataConName :: Name
 eqTyConName      = mkWiredInTyConName   BuiltInSyntax gHC_TYPES (fsLit "~")   eqTyConKey      eqTyCon
 eqBoxDataConName = mkWiredInDataConName UserSyntax    gHC_TYPES (fsLit "Eq#") eqBoxDataConKey eqBoxDataCon
+
+eqReprBoxTyConName, eqReprBoxDataConName :: Name
+eqReprBoxTyConName   = mkWiredInTyConName   UserSyntax gHC_TYPES (fsLit "EqR")  eqReprBoxTyConKey   eqReprBoxTyCon
+eqReprBoxDataConName = mkWiredInDataConName UserSyntax gHC_TYPES (fsLit "EqR#") eqReprBoxDataConKey eqReprBoxDataCon
 
 charTyConName, charDataConName, intTyConName, intDataConName :: Name
 charTyConName     = mkWiredInTyConName   UserSyntax gHC_TYPES (fsLit "Char") charTyConKey charTyCon
@@ -448,6 +454,22 @@ eqBoxDataCon = pcDataCon eqBoxDataConName args [TyConApp eqPrimTyCon (map mkTyVa
     k = mkTyVarTy kv
     a:b:_ = tyVarList k
     args = [kv, a, b]
+
+
+eqReprBoxTyCon :: TyCon
+eqReprBoxTyCon = mkAlgTyCon
+    eqReprBoxTyConName kind tvs [Representational, Representational] Nothing
+    [{- no theta -}] rhs NoParentTyCon NonRecursive False Nothing
+  where kind = mkArrowKinds [liftedTypeKind, liftedTypeKind] liftedTypeKind
+        a:b:_ = tyVarList liftedTypeKind
+        tvs = [a, b]
+        rhs = DataTyCon [eqReprBoxDataCon] False
+
+eqReprBoxDataCon :: DataCon
+eqReprBoxDataCon = pcDataCon eqReprBoxDataConName args [TyConApp eqReprPrimTyCon (liftedTypeKind : map mkTyVarTy args)] eqReprBoxTyCon
+  where
+    a:b:_ = tyVarList liftedTypeKind
+    args = [a, b]
 \end{code}
 
 \begin{code}

@@ -44,12 +44,12 @@ import Unique( Unique )
 import Digraph
 
 
-import TyCon      ( isTupleTyCon, tyConDataCons_maybe )
+import TyCon      ( isTupleTyCon, tyConDataCons_maybe, unwrapNewTyCon_maybe )
 import TcEvidence
 import TcType
 import Type
 import Coercion hiding (substCo)
-import TysWiredIn ( eqBoxDataCon, tupleCon )
+import TysWiredIn ( eqBoxDataCon, eqReprBoxTyCon, eqReprBoxDataCon, tupleCon )
 import Id
 import Class
 import DataCon	( dataConWorkId )
@@ -784,6 +784,65 @@ dsEvTerm (EvLit l) =
   case l of
     EvNum n -> mkIntegerExpr n
     EvStr s -> mkStringExprFS s
+
+dsEvTerm (EvNT cls (EvNTRefl ty)) = do
+  return $ mkNT cls $ mkEqReprBox $ mkReflCo Representational ty
+
+dsEvTerm (EvNT cls (EvNTTyCon tyCon evs)) = do
+  ntEvs <- mapM (mapEvNTArgM (fmap (mkUnNT cls) . dsEvTerm)) evs
+  wrapInEqRCases ntEvs $ \cos -> do
+    return $ mkNT cls $ mkEqReprBox $
+      mkTyConAppCo Representational tyCon cos
+
+dsEvTerm (EvNT cls (EvNTNewType lor tyCon tys v)) = do
+  ntEv <- dsEvTerm v
+  wrapInEqRCase (mkUnNT cls ntEv) $ \co -> do
+          return $ mkNT cls $ mkEqReprBox $
+                connect lor co $
+                mkUnbranchedAxInstCo Representational coAxiom tys
+  where Just (_, _, coAxiom) = unwrapNewTyCon_maybe tyCon
+        connect CLeft co2 co1 = mkTransCo co1 co2
+        connect CRight co2 co1 = mkTransCo co2 (mkSymCo co1)
+
+wrapInEqRCase :: CoreExpr -> (Coercion -> DsM CoreExpr) -> DsM CoreExpr
+wrapInEqRCase e mkBody = do
+  cov <- newSysLocalDs (mkCoercionType Representational ty1 ty2)
+  body' <- mkBody (mkCoVarCo cov)
+  return $
+        ASSERT (tc == eqReprBoxTyCon)
+        mkWildCase
+                e
+                (exprType e)
+                (exprType body')
+                [(DataAlt eqReprBoxDataCon, [cov], body')]
+  where
+  Just (tc, [ty1, ty2]) = splitTyConApp_maybe (exprType e)
+
+wrapInEqRCases :: [EvNTArg CoreExpr] -> ([Coercion] -> DsM CoreExpr) -> DsM CoreExpr
+wrapInEqRCases (EvNTArgN t:es) mkBody =
+  wrapInEqRCases es (\cos -> mkBody (mkReflCo Nominal t:cos))
+wrapInEqRCases (EvNTArgR e:es) mkBody = wrapInEqRCase e $ \co ->
+  wrapInEqRCases es (\cos -> mkBody (co:cos))
+wrapInEqRCases (EvNTArgP t1 t2:es) mkBody =
+  wrapInEqRCases es (\cos -> mkBody (mkUnivCo Phantom t1 t2:cos))
+wrapInEqRCases [] mkBody = mkBody []
+
+mkNT :: Class -> CoreExpr -> CoreExpr
+mkNT cls e =
+    ASSERT (tc == eqReprBoxTyCon)
+    mkCast e (mkSymCo (mkUnbranchedAxInstCo Representational axDict [ty1, ty2]))
+  where
+  Just (tc, [ty1, ty2]) = splitTyConApp_maybe (exprType e)
+  Just (_, _, axDict) = unwrapNewTyCon_maybe (classTyCon cls)
+
+mkUnNT :: Class -> CoreExpr -> CoreExpr
+mkUnNT cls e =
+    ASSERT (tc == classTyCon cls)
+    mkCast e (mkUnbranchedAxInstCo Representational axDict [ty1, ty2])
+  where
+  Just (tc, [ty1, ty2]) = splitTyConApp_maybe (exprType e)
+  Just (_, _, axDict) = unwrapNewTyCon_maybe (classTyCon cls)
+ 
 
 ---------------------------------------
 dsTcCoercion :: Role -> TcCoercion -> (Coercion -> CoreExpr) -> DsM CoreExpr

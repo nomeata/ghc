@@ -43,7 +43,7 @@ module TcSMonad (
     
     setEvBind,
     XEvTerm(..),
-    MaybeNew (..), isFresh, freshGoals, getEvTerms,
+    MaybeNew (..), isFresh, freshGoal, freshGoals, getEvTerm, getEvTerms,
 
     xCtFlavor,        -- Transform a CtEvidence during a step 
     rewriteCtFlavor,  -- Specialized version of xCtFlavor for coercions
@@ -1460,6 +1460,10 @@ getEvTerm (Cached tm)  = tm
 
 getEvTerms :: [MaybeNew] -> [EvTerm]
 getEvTerms = map getEvTerm
+
+freshGoal :: MaybeNew -> Maybe CtEvidence
+freshGoal (Fresh ctev) = Just ctev
+freshGoal _ = Nothing
 
 freshGoals :: [MaybeNew] -> [CtEvidence]
 freshGoals mns = [ ctev | Fresh ctev <- mns ]

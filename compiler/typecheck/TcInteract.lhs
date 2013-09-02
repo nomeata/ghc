@@ -24,7 +24,7 @@ import InstEnv( lookupInstEnv, instanceDFunId )
 
 import Var
 import TcType
-import PrelNames (singIClassName, ipClassNameKey )
+import PrelNames (singIClassName, ipClassNameKey, ntClassName )
 import Id( idType )
 import Class
 import TyCon
@@ -44,6 +44,7 @@ import Maybes( orElse )
 import Bag
 
 import Control.Monad ( foldM )
+import Data.Maybe ( mapMaybe )
 
 import VarEnv
 
@@ -1683,6 +1684,11 @@ data LookupInstResult
   = NoInstance
   | GenInst [CtEvidence] EvTerm 
 
+instance Outputable LookupInstResult where
+  ppr NoInstance = text "NoInstance"
+  ppr (GenInst ev t) = text "GenInst" <+> ppr ev <+> ppr t
+
+
 matchClassInst :: InertSet -> Class -> [Type] -> CtLoc -> TcS LookupInstResult
 
 matchClassInst _ clas [ k, ty ] _
@@ -1726,6 +1732,13 @@ matchClassInst _ clas [ k, ty ] _
       _ -> unexpected
 
   unexpected = panicTcS (text "Unexpected evidence for SingI")
+
+matchClassInst _ clas [ ty1, ty2 ] _
+  | className clas == ntClassName =  do
+      traceTcS "matchClassInst for" $ ppr clas <+> ppr ty1 <+> ppr ty2
+      ev <- getNTInst clas ty1 ty2
+      traceTcS "matchClassInst returned" $ ppr ev
+      return ev
 
 matchClassInst inerts clas tys loc
    = do { dflags <- getDynFlags
@@ -1807,6 +1820,52 @@ matchClassInst inerts clas tys loc
        | otherwise = False -- No overlap with a solved, already been taken care of 
                            -- by the overlap check with the instance environment.
      matchable _tys ct = pprPanic "Expecting dictionary!" (ppr ct)
+
+getNTInst :: Class -> TcType -> TcType -> TcS LookupInstResult
+getNTInst cls ty1 ty2
+  | ty1 `eqType` ty2
+  = do return $ GenInst []
+              $ EvNT cls (EvNTRefl ty1)
+
+  | Just (tc1,tyArgs1) <- splitTyConApp_maybe ty1,
+    Just (tc2,tyArgs2) <- splitTyConApp_maybe ty2,
+    tc1 == tc2,
+    nominalArgsAgree tc1 tyArgs1 tyArgs2
+  = do -- We want evidence for all type arguments of role R
+       arg_evs <- flip mapM (zip (tyConRoles tc1) (zip tyArgs1 tyArgs2)) $ \(r,(ta1,ta2)) ->
+         case r of Nominal -> return (Nothing, EvNTArgN ta1 {- == ta2, due to nominalArgsAgree -})
+                   Representational -> do
+                        ct_ev <- requestNT cls ta1 ta2
+                        return (freshGoal ct_ev, EvNTArgR (getEvTerm ct_ev))
+                   Phantom -> do
+                        return (Nothing, EvNTArgP ta1 ta2)
+       return $ GenInst (mapMaybe fst arg_evs)
+              $ EvNT cls (EvNTTyCon tc1 (map snd arg_evs))
+
+  | Just (tc,tyArgs) <- splitTyConApp_maybe ty1,
+    Just (_, _, _) <- unwrapNewTyCon_maybe tc
+  = do let concTy = newTyConInstRhs tc tyArgs 
+       ct_ev <- requestNT cls concTy ty2
+       return $ GenInst (freshGoals [ct_ev])
+              $ EvNT cls (EvNTNewType CLeft tc tyArgs (getEvTerm ct_ev))
+
+  | Just (tc,tyArgs) <- splitTyConApp_maybe ty2,
+    Just (_, _, _) <- unwrapNewTyCon_maybe tc
+  = do let concTy = newTyConInstRhs tc tyArgs 
+       ct_ev <- newWantedEvVar (cls `mkClassPred` [ty1, concTy])
+       return $ GenInst (freshGoals [ct_ev])
+              $ EvNT cls (EvNTNewType CRight tc tyArgs (getEvTerm ct_ev))
+
+  | otherwise
+  = return $ NoInstance -- pprPanic "Could not create coercions for" $ vcat [ppr ty1, ppr ty2]
+
+nominalArgsAgree :: TyCon -> [Type] -> [Type] -> Bool
+nominalArgsAgree tc tys1 tys2 = all ok $ zip (tyConRoles tc) (zip tys1 tys2)
+  where ok (r,(t1,t2)) = r /= Nominal || t1 `eqType` t2
+
+requestNT :: Class -> TcType -> TcType -> TcS MaybeNew
+requestNT cls ty1 ty2 = newWantedEvVar (cls `mkClassPred` [ty1, ty2]) 
+
 \end{code}
 
 Note [Instance and Given overlap]

@@ -57,6 +57,7 @@ module Type (
         PredTree(..), classifyPredType,
         getClassPredTys, getClassPredTys_maybe,
         getEqPredTys, getEqPredTys_maybe,
+        getEqRolePredTys,
 
         -- ** Common type constructors
         funTyCon,
@@ -159,7 +160,7 @@ import Class
 import TyCon
 import TysPrim
 import {-# SOURCE #-} TysWiredIn ( eqTyCon, typeNatKind, typeSymbolKind )
-import PrelNames ( eqTyConKey, ipClassNameKey, openTypeKindTyConKey,
+import PrelNames ( eqTyConKey, eqReprBoxTyConKey, ntClassKey, ipClassNameKey, openTypeKindTyConKey,
                    constraintKindTyConKey, liftedTypeKindTyConKey )
 import CoAxiom
 
@@ -971,6 +972,20 @@ getEqPredTys ty
       Just (tc, (_ : ty1 : ty2 : tys)) -> ASSERT( tc `hasKey` eqTyConKey && null tys )
                                           (ty1, ty2)
       _ -> pprPanic "getEqPredTys" (ppr ty)
+
+getEqRolePredTys :: PredType -> (Role, Type, Type)
+getEqRolePredTys ty
+  = case splitTyConApp_maybe ty of
+      Just (tc, (_ : ty1 : ty2 : tys)) | tc `hasKey` eqTyConKey 
+        -> ASSERT (null tys)
+	   (Nominal, ty1, ty2)
+      Just (tc, (ty1 : ty2 : tys)) | tc `hasKey` eqReprBoxTyConKey 
+        -> ASSERT (null tys)
+	   (Representational, ty1, ty2)
+      Just (tc, (ty1 : ty2 : tys)) | tc `hasKey` ntClassKey
+        -> ASSERT (null tys)
+	   (Representational, ty1, ty2)
+      _ -> pprPanic "getEqRolePredTys" (ppr ty)
 
 getEqPredTys_maybe :: PredType -> Maybe (Type, Type)
 getEqPredTys_maybe ty

@@ -26,7 +26,7 @@ module MkCore (
         FloatBind(..), wrapFloat,
 
         -- * Constructing/deconstructing equality evidence boxes
-        mkEqBox,
+        mkEqBox, mkEqReprBox,
         
         -- * Constructing general big tuples
         -- $big_tuples
@@ -305,6 +305,11 @@ mkEqBox co = ASSERT2( typeKind ty2 `eqKind` k, ppr co $$ ppr ty1 $$ ppr ty2 $$ p
   where Pair ty1 ty2 = coercionKind co
         k = typeKind ty1
 
+mkEqReprBox :: Coercion -> CoreExpr
+mkEqReprBox co = ASSERT2( typeKind ty2 `eqKind` k, ppr co $$ ppr ty1 $$ ppr ty2 $$ ppr (typeKind ty1) $$ ppr (typeKind ty2) )
+             Var (dataConWorkId eqReprBoxDataCon) `mkTyApps` [ty1, ty2] `App` Coercion co
+  where Pair ty1 ty2 = coercionKind co
+        k = typeKind ty1
 \end{code}
 
 %************************************************************************
