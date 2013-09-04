@@ -1857,7 +1857,7 @@ getNTInst cls ty1 ty2
               $ EvNT cls (EvNTNewType CRight tc tyArgs (getEvTerm ct_ev))
 
   | otherwise
-  = return $ NoInstance -- pprPanic "Could not create coercions for" $ vcat [ppr ty1, ppr ty2]
+  = return $ NoInstance
 
 nominalArgsAgree :: TyCon -> [Type] -> [Type] -> Bool
 nominalArgsAgree tc tys1 tys2 = all ok $ zip (tyConRoles tc) (zip tys1 tys2)
