@@ -1077,20 +1077,14 @@ mk_dict_err ctxt (ct, (matches, unifiers, safe_haskell))
         Just (tc2,tyArgs2) <- splitTyConApp_maybe ty2,
         tc1 == tc2
       = nest 2 $ vcat $ 
-          [ vcat $
-              [ fsep [ ptext $ sLit "because the type constructor", quotes (ppr tc), used_msg
-                     , ptext $ sLit "is abstract" ]
-              | isAbstractTyCon tc
-              ] ++
-              [ fsep [ ptext (sLit "because the constructor") <> plural (tyConDataCons tc)
-                     , ptext (sLit "of") <+> quotes (ppr tc), used_msg
-                     , isOrAre (tyConDataCons tc) <+> ptext (sLit "not imported") ]
-              | dataConMissing rdr_env tc
-              ]
-          | tc <- tcTyConsOfTyCon tc1
-          , let used_msg | tc == tc1 = empty
-                         | otherwise = ptext (sLit "which is used in the definition of") <+> quotes (ppr tc1)
-          ] ++
+          -- First complain if tc is abstract, only if not check if the type constructors therein are abstract
+          (case typeConAbstractMsg rdr_env tc1 empty of
+                Just msg -> [ msg ]
+                Nothing -> [ msg
+                           | tc <- tcTyConsOfTyCon tc1
+                           , Just msg <- [typeConAbstractMsg rdr_env tc (parens $ ptext (sLit "used within") <+> quotes (ppr tc1))]
+                           ]
+          ) ++
           [ fsep [ hsep [ ptext $ sLit "because the", speakNth n, ptext $ sLit "type argument"]
                  , hsep [ ptext $ sLit "of", quotes (ppr tc1), ptext $ sLit "has role Nominal,"]
                  , ptext $ sLit "but the arguments"
@@ -1123,6 +1117,19 @@ mk_dict_err ctxt (ct, (matches, unifiers, safe_haskell))
                                , ptext $ sLit "is a recursive type constuctor" ]
         | otherwise
         = Nothing
+
+    typeConAbstractMsg rdr_env tc occExpl
+        | isAbstractTyCon tc || dataConMissing rdr_env tc = Just $ vcat $
+            [ fsep [ ptext $ sLit "because the type constructor", quotes (ppr tc) <+> occExpl
+                   , ptext $ sLit "is abstract" ]
+            | isAbstractTyCon tc
+            ] ++
+            [ fsep [ ptext (sLit "because the constructor") <> plural (tyConDataCons tc)
+                   , ptext (sLit "of") <+> quotes (ppr tc) <+> occExpl
+                   , isOrAre (tyConDataCons tc) <+> ptext (sLit "not imported") ]
+            | dataConMissing rdr_env tc
+            ]
+        | otherwise = Nothing
 
 show_fixes :: [SDoc] -> SDoc
 show_fixes []     = empty
