@@ -1078,11 +1078,11 @@ mk_dict_err ctxt (ct, (matches, unifiers, safe_haskell))
         tc1 == tc2
       = nest 2 $ vcat $ 
           -- First complain if tc is abstract, only if not check if the type constructors therein are abstract
-          (case typeConAbstractMsg rdr_env tc1 empty of
+          (case tyConAbstractMsg rdr_env tc1 empty of
                 Just msg -> [ msg ]
                 Nothing -> [ msg
                            | tc <- tcTyConsOfTyCon tc1
-                           , Just msg <- [typeConAbstractMsg rdr_env tc (parens $ ptext (sLit "used within") <+> quotes (ppr tc1))]
+                           , Just msg <- [tyConAbstractMsg rdr_env tc (parens $ ptext (sLit "used within") <+> quotes (ppr tc1))]
                            ]
           ) ++
           [ fsep [ hsep [ ptext $ sLit "because the", speakNth n, ptext $ sLit "type argument"]
@@ -1095,11 +1095,11 @@ mk_dict_err ctxt (ct, (matches, unifiers, safe_haskell))
           | (n,Nominal,t1,t2) <- zip4 [1..] (tyConRoles tc1) tyArgs1 tyArgs2
           , not (t1 `eqType` t2)
           ]
-      | Just (tc,tyArgs) <- splitTyConApp_maybe ty1,
-        Just msg <- coercible_msg_for_tycon tc tyArgs
+      | Just (tc,_) <- splitTyConApp_maybe ty1,
+        Just msg <- coercible_msg_for_tycon rdr_env tc
       = msg
-      | Just (tc,tyArgs) <- splitTyConApp_maybe ty2,
-        Just msg <- coercible_msg_for_tycon tc tyArgs
+      | Just (tc,_) <- splitTyConApp_maybe ty2,
+        Just msg <- coercible_msg_for_tycon rdr_env tc
       = msg
       | otherwise
       = nest 2 $ hsep [ ptext $ sLit "because", quotes (ppr ty1),
@@ -1111,14 +1111,16 @@ mk_dict_err ctxt (ct, (matches, unifiers, safe_haskell))
     dataConMissing rdr_env tc =
         all (null . lookupGRE_Name rdr_env) (map dataConName (tyConDataCons tc))
 
-    coercible_msg_for_tycon tc tyArgs
+    coercible_msg_for_tycon rdr_env tc
         | isRecursiveTyCon tc
         = Just $ nest 2 $ hsep [ ptext $ sLit "because", quotes (ppr tc)
                                , ptext $ sLit "is a recursive type constuctor" ]
+        | isNewTyCon tc
+        = tyConAbstractMsg rdr_env tc empty
         | otherwise
         = Nothing
 
-    typeConAbstractMsg rdr_env tc occExpl
+    tyConAbstractMsg rdr_env tc occExpl
         | isAbstractTyCon tc || dataConMissing rdr_env tc = Just $ vcat $
             [ fsep [ ptext $ sLit "because the type constructor", quotes (ppr tc) <+> occExpl
                    , ptext $ sLit "is abstract" ]

@@ -30,7 +30,7 @@ import Class
 import TyCon
 import DataCon
 import Name
-import RdrName ( lookupGRE_Name )
+import RdrName ( GlobalRdrEnv, lookupGRE_Name )
 
 import FunDeps
 
@@ -1739,7 +1739,8 @@ matchClassInst _ clas [ k, ty ] _
 matchClassInst _ clas [ ty1, ty2 ] _
   | className clas == coercibleClassName =  do
       traceTcS "matchClassInst for" $ ppr clas <+> ppr ty1 <+> ppr ty2
-      ev <- getCoericbleInst clas ty1 ty2
+      rdr_env <- getGlobalRdrEnvTcS
+      ev <- getCoericbleInst rdr_env clas ty1 ty2
       traceTcS "matchClassInst returned" $ ppr ev
       return ev
 
@@ -1824,8 +1825,8 @@ matchClassInst inerts clas tys loc
                            -- by the overlap check with the instance environment.
      matchable _tys ct = pprPanic "Expecting dictionary!" (ppr ct)
 
-getCoericbleInst :: Class -> TcType -> TcType -> TcS LookupInstResult
-getCoericbleInst cls ty1 ty2
+getCoericbleInst :: GlobalRdrEnv -> Class -> TcType -> TcType -> TcS LookupInstResult
+getCoericbleInst rdr_env cls ty1 ty2
   | ty1 `eqType` ty2
   = do return $ GenInst []
               $ EvCoercible cls (EvCoercibleRefl ty1)
@@ -1833,19 +1834,9 @@ getCoericbleInst cls ty1 ty2
   | Just (tc1,tyArgs1) <- splitTyConApp_maybe ty1,
     Just (tc2,tyArgs2) <- splitTyConApp_maybe ty2,
     tc1 == tc2,
-    nominalArgsAgree tc1 tyArgs1 tyArgs2
-  = do -- First check that all data constructors of all type constructors used in the definition of tc 
-       -- are in scope
-       rdr_env <- getGlobalRdrEnvTcS
-       let tcs = tcTyConsOfTyCon tc1
-           data_con_names = map dataConName (concatMap tyConDataCons tcs)
-           hidden_data_cons = not (isWiredInName (tyConName tc1)) &&
-                                    (isAbstractTyCon tc1 ||
-                                     any not_in_scope data_con_names)
-           not_in_scope dc  = null (lookupGRE_Name rdr_env dc)
-       if hidden_data_cons then return NoInstance else do
-
-       -- We want evidence for all type arguments of role R
+    nominalArgsAgree tc1 tyArgs1 tyArgs2,
+    all (dataConsInScope rdr_env) (tcTyConsOfTyCon tc1)
+  = do -- We want evidence for all type arguments of role R
        arg_evs <- flip mapM (zip3 (tyConRoles tc1) tyArgs1 tyArgs2) $ \(r,ta1,ta2) ->
          case r of Nominal -> return (Nothing, EvCoercibleArgN ta1 {- == ta2, due to nominalArgsAgree -})
                    Representational -> do
@@ -1858,7 +1849,8 @@ getCoericbleInst cls ty1 ty2
 
   | Just (tc,tyArgs) <- splitTyConApp_maybe ty1,
     Just (_, _, _) <- unwrapNewTyCon_maybe tc,
-    not (isRecursiveTyCon tc)
+    not (isRecursiveTyCon tc),
+    dataConsInScope rdr_env tc -- Do noot look at all tcTyConsOfTyCon
   = do let concTy = newTyConInstRhs tc tyArgs 
        ct_ev <- requestCoercible cls concTy ty2
        return $ GenInst (freshGoals [ct_ev])
@@ -1866,7 +1858,8 @@ getCoericbleInst cls ty1 ty2
 
   | Just (tc,tyArgs) <- splitTyConApp_maybe ty2,
     Just (_, _, _) <- unwrapNewTyCon_maybe tc,
-    not (isRecursiveTyCon tc)
+    not (isRecursiveTyCon tc),
+    dataConsInScope rdr_env tc -- Do noot look at all tcTyConsOfTyCon
   = do let concTy = newTyConInstRhs tc tyArgs 
        ct_ev <- newWantedEvVar (cls `mkClassPred` [ty1, concTy])
        return $ GenInst (freshGoals [ct_ev])
@@ -1879,6 +1872,14 @@ getCoericbleInst cls ty1 ty2
 nominalArgsAgree :: TyCon -> [Type] -> [Type] -> Bool
 nominalArgsAgree tc tys1 tys2 = all ok $ zip3 (tyConRoles tc) tys1 tys2
   where ok (r,t1,t2) = r /= Nominal || t1 `eqType` t2
+
+dataConsInScope :: GlobalRdrEnv -> TyCon -> Bool
+dataConsInScope rdr_env tc = not hidden_data_cons
+  where
+    data_con_names = map dataConName (tyConDataCons tc)
+    hidden_data_cons = not (isWiredInName (tyConName tc)) &&
+                       (isAbstractTyCon tc || any not_in_scope data_con_names)
+    not_in_scope dc  = null (lookupGRE_Name rdr_env dc)
 
 requestCoercible :: Class -> TcType -> TcType -> TcS MaybeNew
 requestCoercible cls ty1 ty2 = newWantedEvVar (cls `mkClassPred` [ty1, ty2]) 
