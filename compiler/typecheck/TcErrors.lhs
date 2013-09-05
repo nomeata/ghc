@@ -1071,6 +1071,9 @@ mk_dict_err ctxt (ct, (matches, unifiers, safe_haskell))
                     ]
              ]
 
+    -- This function tries to reconstruct why a "Coercible ty1 ty2" constraing is left over.
+    -- Therefore its logic has to stay in sync with getCoericbleInst in TcInteract.
+    -- See Note [Coercible Instances]
     coercible_msg rdr_env
       | className clas /= coercibleClassName = empty
       | Just (tc1,tyArgs1) <- splitTyConApp_maybe ty1,

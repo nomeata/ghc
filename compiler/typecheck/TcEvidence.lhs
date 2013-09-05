@@ -505,6 +505,7 @@ data EvTerm
                                  -- Note [SingI and EvLit]
 
   | EvCoercible Class EvCoercible -- Dictionary for "Coercible a b" (HACK: class Coercible not built in yet)
+                                 -- Note [Coercible Instances]
 
   deriving( Data.Data, Data.Typeable)
 

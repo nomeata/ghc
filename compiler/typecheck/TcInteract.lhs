@@ -1825,6 +1825,8 @@ matchClassInst inerts clas tys loc
                            -- by the overlap check with the instance environment.
      matchable _tys ct = pprPanic "Expecting dictionary!" (ppr ct)
 
+-- See Note [Coercible Instances]
+-- Changes to this logic should likely be reflected in coercible_msg in TcErrors.
 getCoericbleInst :: GlobalRdrEnv -> Class -> TcType -> TcType -> TcS LookupInstResult
 getCoericbleInst rdr_env cls ty1 ty2
   | ty1 `eqType` ty2
@@ -1885,6 +1887,38 @@ requestCoercible :: Class -> TcType -> TcType -> TcS MaybeNew
 requestCoercible cls ty1 ty2 = newWantedEvVar (cls `mkClassPred` [ty1, ty2]) 
 
 \end{code}
+
+Note [Coercible Instances]
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+The class Coercible is special: There are no regular instances, and the user
+cannot even define them (TODO: Actually do that). Instead, the type checker
+will create instances and their evidence out of thin air, in getCoericbleInst.
+The following “instance” are present:
+
+ 1. instance Coercible a a
+    for any type a.
+ 2. instance (Coercible t1_r t1'_r, Coercible t2_r t2_r',...) =>
+       Coercible (C t1_r  t2_r  ... t1_p  t2_p  ... t1_n t2_n ...)
+                 (C t1_r' t2_r' ... t1_p' t2_p' ... t1_n t2_n ...)
+    for a type constructor C where
+     * the nominal type arguments are not changed,
+     * the phantom type arguments may change arbitrarily
+     * the representational type arguments are again Coercible
+     * the data constructors of C are in scope and
+     * the data constructors of all type constructors used in the definition of C are in scope.
+       This is required as otherwise the previous check can be circumvented by
+       just adding a local data type around C.
+ 3. instance Coercible r b => Coercible (NT t1 t2 ...) b
+    instance Coercible a r => Coercible a (NT t1 t2 ...)
+    for a newtype constructor NT where
+     * NT is not recursive
+     * r is the concrete type of NT, instantiated with the arguments t1 t2 ... 
+     * the data constructors of NT are in scope.
+     
+These three shapes of instances correspond to the three constructors of
+EvCoercible (defined in EvEvidence). They are assembled here and turned to Core
+by dsEvTerm in DsBinds.
+
 
 Note [Instance and Given overlap]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

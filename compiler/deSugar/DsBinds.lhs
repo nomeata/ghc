@@ -785,6 +785,7 @@ dsEvTerm (EvLit l) =
     EvNum n -> mkIntegerExpr n
     EvStr s -> mkStringExprFS s
 
+-- Note [Coercible Instances]
 dsEvTerm (EvCoercible cls (EvCoercibleRefl ty)) = do
   return $ mkCoercionCls cls $ mkEqReprBox $ mkReflCo Representational ty
 
