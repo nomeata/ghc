@@ -20,6 +20,7 @@ import TcRnTypes
 import TcRnMonad
 import TcMType
 import TcType
+import TcTyDecls (tcTyConsOfTyCon)
 import TypeRep
 import Type
 import Kind ( isKind )
@@ -27,9 +28,11 @@ import Unify            ( tcMatchTys )
 import Inst
 import InstEnv
 import TyCon
+import DataCon
 import TcEvidence
 import PrelNames        ( coercibleClassName )
 import Name
+import RdrName          ( lookupGRE_Name )
 import Class            ( className )
 import Id 
 import Var
@@ -936,7 +939,8 @@ mk_dict_err ctxt (ct, (matches, unifiers, safe_haskell))
   = do { let (is_ambig, ambig_msg) = mkAmbigMsg ct
        ; (ctxt, binds_msg) <- relevantBindings True ctxt ct
        ; traceTc "mk_dict_err" (ppr ct $$ ppr is_ambig $$ ambig_msg)
-       ; return (ctxt, cannot_resolve_msg is_ambig binds_msg ambig_msg) }
+       ; rdr_env <- getGlobalRdrEnv
+       ; return (ctxt, cannot_resolve_msg rdr_env is_ambig binds_msg ambig_msg) }
 
   | not safe_haskell   -- Some matches => overlap errors
   = return (ctxt, overlap_msg)
@@ -951,8 +955,8 @@ mk_dict_err ctxt (ct, (matches, unifiers, safe_haskell))
     givens      = getUserGivens ctxt
     all_tyvars  = all isTyVarTy tys
 
-    cannot_resolve_msg has_ambig_tvs binds_msg ambig_msg
-      = vcat [ addArising orig (no_inst_herald <+> pprParendType pred $$ coercible_msg)
+    cannot_resolve_msg rdr_env has_ambig_tvs binds_msg ambig_msg
+      = vcat [ addArising orig (no_inst_herald <+> pprParendType pred $$ coercible_msg rdr_env)
              , vcat (pp_givens givens)
              , ppWhen (has_ambig_tvs && not (null unifiers && null givens))
                (vcat [ ambig_msg, binds_msg, potential_msg ])
@@ -1067,22 +1071,36 @@ mk_dict_err ctxt (ct, (matches, unifiers, safe_haskell))
                     ]
              ]
 
-    coercible_msg
+    coercible_msg rdr_env
       | className clas /= coercibleClassName = empty
       | Just (tc1,tyArgs1) <- splitTyConApp_maybe ty1,
         Just (tc2,tyArgs2) <- splitTyConApp_maybe ty2,
         tc1 == tc2
-      = nest 2 $
-        vcat [ fsep [ hsep [ ptext $ sLit "because the", speakNth n, ptext $ sLit "type argument"]
-                    , hsep [ ptext $ sLit "of", quotes (ppr tc1), ptext $ sLit "has role Nominal,"]
-                    , ptext $ sLit "but the arguments"
-                    , quotes (ppr t1)
-                    , ptext $ sLit "and"
-                    , quotes (ppr t2)
-                    , ptext $ sLit "differ" ]
-             | (n,Nominal,t1,t2) <- zip4 [1..] (tyConRoles tc1) tyArgs1 tyArgs2
-             , not (t1 `eqType` t2)
-             ]
+      = nest 2 $ vcat $ 
+          [ vcat $
+              [ fsep [ ptext $ sLit "because the type constructor", quotes (ppr tc), used_msg
+                     , ptext $ sLit "is abstract" ]
+              | isAbstractTyCon tc
+              ] ++
+              [ fsep [ ptext (sLit "because the constructor") <> plural (tyConDataCons tc)
+                     , ptext (sLit "of") <+> quotes (ppr tc), used_msg
+                     , isOrAre (tyConDataCons tc) <+> ptext (sLit "not imported") ]
+              | dataConMissing rdr_env tc
+              ]
+          | tc <- tcTyConsOfTyCon tc1
+          , let used_msg | tc == tc1 = empty
+                         | otherwise = ptext (sLit "which is used in the definition of") <+> quotes (ppr tc1)
+          ] ++
+          [ fsep [ hsep [ ptext $ sLit "because the", speakNth n, ptext $ sLit "type argument"]
+                 , hsep [ ptext $ sLit "of", quotes (ppr tc1), ptext $ sLit "has role Nominal,"]
+                 , ptext $ sLit "but the arguments"
+                 , quotes (ppr t1)
+                 , ptext $ sLit "and"
+                 , quotes (ppr t2)
+                 , ptext $ sLit "differ" ]
+          | (n,Nominal,t1,t2) <- zip4 [1..] (tyConRoles tc1) tyArgs1 tyArgs2
+          , not (t1 `eqType` t2)
+          ]
       | Just (tc,tyArgs) <- splitTyConApp_maybe ty1,
         Just msg <- coercible_msg_for_tycon tc tyArgs
       = msg
@@ -1095,6 +1113,9 @@ mk_dict_err ctxt (ct, (matches, unifiers, safe_haskell))
                         ptext $ sLit "are different types." ]
       where
         (clas, ~[ty1,ty2]) = getClassPredTys (ctPred ct)
+
+    dataConMissing rdr_env tc =
+        all (null . lookupGRE_Name rdr_env) (map dataConName (tyConDataCons tc))
 
     coercible_msg_for_tycon tc tyArgs
         | isRecursiveTyCon tc

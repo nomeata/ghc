@@ -84,7 +84,7 @@ module TcSMonad (
     Untouchables, isTouchableMetaTyVarTcS, isFilledMetaTyVar_maybe,
     zonkTyVarsAndFV,
 
-    getDefaultInfo, getDynFlags,
+    getDefaultInfo, getDynFlags, getGlobalRdrEnvTcS,
 
     matchFam, matchOpenFam, 
     checkWellStagedDFun, 
@@ -118,6 +118,7 @@ import Class
 import TyCon
 
 import Name
+import RdrName (GlobalRdrEnv)
 import Var
 import VarEnv
 import Outputable
@@ -998,6 +999,9 @@ traceTcS herald doc = wrapTcS (TcM.traceTc herald doc)
 
 instance HasDynFlags TcS where
     getDynFlags = wrapTcS getDynFlags
+
+getGlobalRdrEnvTcS :: TcS GlobalRdrEnv
+getGlobalRdrEnvTcS = wrapTcS TcM.getGlobalRdrEnv
 
 bumpStepCountTcS :: TcS ()
 bumpStepCountTcS = TcS $ \env -> do { let ref = tcs_count env

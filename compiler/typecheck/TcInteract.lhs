@@ -28,7 +28,9 @@ import PrelNames (singIClassName, ipClassNameKey, coercibleClassName )
 import Id( idType )
 import Class
 import TyCon
+import DataCon
 import Name
+import RdrName ( lookupGRE_Name )
 
 import FunDeps
 
@@ -40,6 +42,7 @@ import TcMType ( zonkTcPredType )
 import TcRnTypes
 import TcErrors
 import TcSMonad
+import TcTyDecls (tcTyConsOfTyCon)
 import Maybes( orElse )
 import Bag
 
@@ -1831,7 +1834,18 @@ getCoericbleInst cls ty1 ty2
     Just (tc2,tyArgs2) <- splitTyConApp_maybe ty2,
     tc1 == tc2,
     nominalArgsAgree tc1 tyArgs1 tyArgs2
-  = do -- We want evidence for all type arguments of role R
+  = do -- First check that all data constructors of all type constructors used in the definition of tc 
+       -- are in scope
+       rdr_env <- getGlobalRdrEnvTcS
+       let tcs = tcTyConsOfTyCon tc1
+           data_con_names = map dataConName (concatMap tyConDataCons tcs)
+           hidden_data_cons = not (isWiredInName (tyConName tc1)) &&
+                                    (isAbstractTyCon tc1 ||
+                                     any not_in_scope data_con_names)
+           not_in_scope dc  = null (lookupGRE_Name rdr_env dc)
+       if hidden_data_cons then return NoInstance else do
+
+       -- We want evidence for all type arguments of role R
        arg_evs <- flip mapM (zip3 (tyConRoles tc1) tyArgs1 tyArgs2) $ \(r,ta1,ta2) ->
          case r of Nominal -> return (Nothing, EvCoercibleArgN ta1 {- == ta2, due to nominalArgsAgree -})
                    Representational -> do
@@ -1859,7 +1873,8 @@ getCoericbleInst cls ty1 ty2
               $ EvCoercible cls (EvCoercibleNewType CRight tc tyArgs (getEvTerm ct_ev))
 
   | otherwise
-  = return $ NoInstance
+  = return NoInstance
+
 
 nominalArgsAgree :: TyCon -> [Type] -> [Type] -> Bool
 nominalArgsAgree tc tys1 tys2 = all ok $ zip3 (tyConRoles tc) tys1 tys2
