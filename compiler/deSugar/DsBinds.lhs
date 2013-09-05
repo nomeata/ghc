@@ -785,19 +785,19 @@ dsEvTerm (EvLit l) =
     EvNum n -> mkIntegerExpr n
     EvStr s -> mkStringExprFS s
 
-dsEvTerm (EvNT cls (EvNTRefl ty)) = do
-  return $ mkNT cls $ mkEqReprBox $ mkReflCo Representational ty
+dsEvTerm (EvCoercible cls (EvCoercibleRefl ty)) = do
+  return $ mkCoercionCls cls $ mkEqReprBox $ mkReflCo Representational ty
 
-dsEvTerm (EvNT cls (EvNTTyCon tyCon evs)) = do
-  ntEvs <- mapM (mapEvNTArgM (fmap (mkUnNT cls) . dsEvTerm)) evs
+dsEvTerm (EvCoercible cls (EvCoercibleTyCon tyCon evs)) = do
+  ntEvs <- mapM (mapEvCoercibleArgM (fmap (mkUnCoercionCls cls) . dsEvTerm)) evs
   wrapInEqRCases ntEvs $ \cos -> do
-    return $ mkNT cls $ mkEqReprBox $
+    return $ mkCoercionCls cls $ mkEqReprBox $
       mkTyConAppCo Representational tyCon cos
 
-dsEvTerm (EvNT cls (EvNTNewType lor tyCon tys v)) = do
+dsEvTerm (EvCoercible cls (EvCoercibleNewType lor tyCon tys v)) = do
   ntEv <- dsEvTerm v
-  wrapInEqRCase (mkUnNT cls ntEv) $ \co -> do
-          return $ mkNT cls $ mkEqReprBox $
+  wrapInEqRCase (mkUnCoercionCls cls ntEv) $ \co -> do
+          return $ mkCoercionCls cls $ mkEqReprBox $
                 connect lor co $
                 mkUnbranchedAxInstCo Representational coAxiom tys
   where Just (_, _, coAxiom) = unwrapNewTyCon_maybe tyCon
@@ -818,25 +818,25 @@ wrapInEqRCase e mkBody = do
   where
   Just (tc, [ty1, ty2]) = splitTyConApp_maybe (exprType e)
 
-wrapInEqRCases :: [EvNTArg CoreExpr] -> ([Coercion] -> DsM CoreExpr) -> DsM CoreExpr
-wrapInEqRCases (EvNTArgN t:es) mkBody =
+wrapInEqRCases :: [EvCoercibleArg CoreExpr] -> ([Coercion] -> DsM CoreExpr) -> DsM CoreExpr
+wrapInEqRCases (EvCoercibleArgN t:es) mkBody =
   wrapInEqRCases es (\cos -> mkBody (mkReflCo Nominal t:cos))
-wrapInEqRCases (EvNTArgR e:es) mkBody = wrapInEqRCase e $ \co ->
+wrapInEqRCases (EvCoercibleArgR e:es) mkBody = wrapInEqRCase e $ \co ->
   wrapInEqRCases es (\cos -> mkBody (co:cos))
-wrapInEqRCases (EvNTArgP t1 t2:es) mkBody =
+wrapInEqRCases (EvCoercibleArgP t1 t2:es) mkBody =
   wrapInEqRCases es (\cos -> mkBody (mkUnivCo Phantom t1 t2:cos))
 wrapInEqRCases [] mkBody = mkBody []
 
-mkNT :: Class -> CoreExpr -> CoreExpr
-mkNT cls e =
+mkCoercionCls :: Class -> CoreExpr -> CoreExpr
+mkCoercionCls cls e =
     ASSERT (tc == eqReprBoxTyCon)
     mkCast e (mkSymCo (mkUnbranchedAxInstCo Representational axDict [ty1, ty2]))
   where
   Just (tc, [ty1, ty2]) = splitTyConApp_maybe (exprType e)
   Just (_, _, axDict) = unwrapNewTyCon_maybe (classTyCon cls)
 
-mkUnNT :: Class -> CoreExpr -> CoreExpr
-mkUnNT cls e =
+mkUnCoercionCls :: Class -> CoreExpr -> CoreExpr
+mkUnCoercionCls cls e =
     ASSERT (tc == classTyCon cls)
     mkCast e (mkUnbranchedAxInstCo Representational axDict [ty1, ty2])
   where

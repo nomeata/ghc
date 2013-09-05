@@ -317,8 +317,8 @@ basicKnownKeyNames
         , genClassName, gen1ClassName
         , datatypeClassName, constructorClassName, selectorClassName
 
-	-- IsNT
-	, ntClassName
+	-- The Coercible Class
+	, coercibleClassName
 
         -- Monad comprehensions
         , guardMName
@@ -353,7 +353,7 @@ genericTyConNames = [
 pRELUDE :: Module
 pRELUDE         = mkBaseModule_ pRELUDE_NAME
 
-gHC_PRIM, gHC_PRIMWRAPPERS, gHC_TYPES, gHC_GENERICS, gHC_MAGIC, gHC_NT,
+gHC_PRIM, gHC_PRIMWRAPPERS, gHC_TYPES, gHC_GENERICS, gHC_MAGIC, gHC_COERCIBLE,
     gHC_CLASSES, gHC_BASE, gHC_ENUM, gHC_GHCI, gHC_CSTRING,
     gHC_SHOW, gHC_READ, gHC_NUM, gHC_INTEGER_TYPE, gHC_LIST,
     gHC_TUPLE, dATA_TUPLE, dATA_EITHER, dATA_STRING, dATA_FOLDABLE, dATA_TRAVERSABLE, dATA_MONOID,
@@ -371,7 +371,7 @@ gHC_TYPES       = mkPrimModule (fsLit "GHC.Types")
 gHC_MAGIC       = mkPrimModule (fsLit "GHC.Magic")
 gHC_CSTRING     = mkPrimModule (fsLit "GHC.CString")
 gHC_CLASSES     = mkPrimModule (fsLit "GHC.Classes")
-gHC_NT          = mkPrimModule (fsLit "GHC.NT")
+gHC_COERCIBLE   = mkPrimModule (fsLit "GHC.Coercible")
 
 gHC_BASE        = mkBaseModule (fsLit "GHC.Base")
 gHC_ENUM        = mkBaseModule (fsLit "GHC.Enum")
@@ -790,8 +790,8 @@ repTyConName  = tcQual gHC_GENERICS (fsLit "Rep")  repTyConKey
 rep1TyConName = tcQual gHC_GENERICS (fsLit "Rep1") rep1TyConKey
 
 -- Newtype unpacking
-ntClassName :: Name
-ntClassName = clsQual gHC_NT (fsLit "NT") ntClassKey
+coercibleClassName :: Name
+coercibleClassName = clsQual gHC_COERCIBLE (fsLit "Coercible") coercibleClassKey
 -- Base strings Strings
 unpackCStringName, unpackCStringFoldrName,
     unpackCStringUtf8Name, eqStringName, stringTyConName :: Name
@@ -1278,8 +1278,8 @@ oldTypeable5ClassKey       = mkPreludeClassUnique 51
 oldTypeable6ClassKey       = mkPreludeClassUnique 52
 oldTypeable7ClassKey       = mkPreludeClassUnique 53
 
-ntClassKey :: Unique
-ntClassKey = mkPreludeClassUnique 54
+coercibleClassKey :: Unique
+coercibleClassKey = mkPreludeClassUnique 54
 \end{code}
 
 %************************************************************************

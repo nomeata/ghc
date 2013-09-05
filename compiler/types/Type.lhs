@@ -160,7 +160,7 @@ import Class
 import TyCon
 import TysPrim
 import {-# SOURCE #-} TysWiredIn ( eqTyCon, typeNatKind, typeSymbolKind )
-import PrelNames ( eqTyConKey, eqReprBoxTyConKey, ntClassKey, ipClassNameKey, openTypeKindTyConKey,
+import PrelNames ( eqTyConKey, eqReprBoxTyConKey, coercibleClassKey, ipClassNameKey, openTypeKindTyConKey,
                    constraintKindTyConKey, liftedTypeKindTyConKey )
 import CoAxiom
 
@@ -982,7 +982,7 @@ getEqRolePredTys ty
       Just (tc, (ty1 : ty2 : tys)) | tc `hasKey` eqReprBoxTyConKey 
         -> ASSERT (null tys)
 	   (Representational, ty1, ty2)
-      Just (tc, (ty1 : ty2 : tys)) | tc `hasKey` ntClassKey
+      Just (tc, (ty1 : ty2 : tys)) | tc `hasKey` coercibleClassKey
         -> ASSERT (null tys)
 	   (Representational, ty1, ty2)
       _ -> pprPanic "getEqRolePredTys" (ppr ty)
