@@ -1832,7 +1832,7 @@ getCoericbleInst cls ty1 ty2
     tc1 == tc2,
     nominalArgsAgree tc1 tyArgs1 tyArgs2
   = do -- We want evidence for all type arguments of role R
-       arg_evs <- flip mapM (zip (tyConRoles tc1) (zip tyArgs1 tyArgs2)) $ \(r,(ta1,ta2)) ->
+       arg_evs <- flip mapM (zip3 (tyConRoles tc1) tyArgs1 tyArgs2) $ \(r,ta1,ta2) ->
          case r of Nominal -> return (Nothing, EvCoercibleArgN ta1 {- == ta2, due to nominalArgsAgree -})
                    Representational -> do
                         ct_ev <- requestCoercible cls ta1 ta2
@@ -1843,14 +1843,16 @@ getCoericbleInst cls ty1 ty2
               $ EvCoercible cls (EvCoercibleTyCon tc1 (map snd arg_evs))
 
   | Just (tc,tyArgs) <- splitTyConApp_maybe ty1,
-    Just (_, _, _) <- unwrapNewTyCon_maybe tc
+    Just (_, _, _) <- unwrapNewTyCon_maybe tc,
+    not (isRecursiveTyCon tc)
   = do let concTy = newTyConInstRhs tc tyArgs 
        ct_ev <- requestCoercible cls concTy ty2
        return $ GenInst (freshGoals [ct_ev])
               $ EvCoercible cls (EvCoercibleNewType CLeft tc tyArgs (getEvTerm ct_ev))
 
   | Just (tc,tyArgs) <- splitTyConApp_maybe ty2,
-    Just (_, _, _) <- unwrapNewTyCon_maybe tc
+    Just (_, _, _) <- unwrapNewTyCon_maybe tc,
+    not (isRecursiveTyCon tc)
   = do let concTy = newTyConInstRhs tc tyArgs 
        ct_ev <- newWantedEvVar (cls `mkClassPred` [ty1, concTy])
        return $ GenInst (freshGoals [ct_ev])
@@ -1860,8 +1862,8 @@ getCoericbleInst cls ty1 ty2
   = return $ NoInstance
 
 nominalArgsAgree :: TyCon -> [Type] -> [Type] -> Bool
-nominalArgsAgree tc tys1 tys2 = all ok $ zip (tyConRoles tc) (zip tys1 tys2)
-  where ok (r,(t1,t2)) = r /= Nominal || t1 `eqType` t2
+nominalArgsAgree tc tys1 tys2 = all ok $ zip3 (tyConRoles tc) tys1 tys2
+  where ok (r,t1,t2) = r /= Nominal || t1 `eqType` t2
 
 requestCoercible :: Class -> TcType -> TcType -> TcS MaybeNew
 requestCoercible cls ty1 ty2 = newWantedEvVar (cls `mkClassPred` [ty1, ty2]) 

@@ -28,7 +28,9 @@ import Inst
 import InstEnv
 import TyCon
 import TcEvidence
+import PrelNames        ( coercibleClassName )
 import Name
+import Class            ( className )
 import Id 
 import Var
 import VarSet
@@ -42,7 +44,7 @@ import FastString
 import Outputable
 import SrcLoc
 import DynFlags
-import Data.List        ( partition, mapAccumL )
+import Data.List        ( partition, mapAccumL, zip4 )
 \end{code}
 
 %************************************************************************
@@ -950,11 +952,12 @@ mk_dict_err ctxt (ct, (matches, unifiers, safe_haskell))
     all_tyvars  = all isTyVarTy tys
 
     cannot_resolve_msg has_ambig_tvs binds_msg ambig_msg
-      = vcat [ addArising orig (no_inst_herald <+> pprParendType pred)
+      = vcat [ addArising orig (no_inst_herald <+> pprParendType pred $$ coercible_msg)
              , vcat (pp_givens givens)
              , ppWhen (has_ambig_tvs && not (null unifiers && null givens))
                (vcat [ ambig_msg, binds_msg, potential_msg ])
-             , show_fixes (add_to_ctxt_fixes has_ambig_tvs ++ drv_fixes) ]
+             , show_fixes (add_to_ctxt_fixes has_ambig_tvs ++ drv_fixes)
+              ]
 
     potential_msg
       = ppWhen (not (null unifiers) && want_potential orig) $
@@ -1063,6 +1066,42 @@ mk_dict_err ctxt (ct, (matches, unifiers, safe_haskell))
                     , nest 2 (vcat [pprInstances $ tail ispecs])
                     ]
              ]
+
+    coercible_msg
+      | className clas /= coercibleClassName = empty
+      | Just (tc1,tyArgs1) <- splitTyConApp_maybe ty1,
+        Just (tc2,tyArgs2) <- splitTyConApp_maybe ty2,
+        tc1 == tc2
+      = nest 2 $
+        vcat [ fsep [ hsep [ ptext $ sLit "because the", speakNth n, ptext $ sLit "type argument"]
+                    , hsep [ ptext $ sLit "of", quotes (ppr tc1), ptext $ sLit "has role Nominal,"]
+                    , ptext $ sLit "but the arguments"
+                    , quotes (ppr t1)
+                    , ptext $ sLit "and"
+                    , quotes (ppr t2)
+                    , ptext $ sLit "differ" ]
+             | (n,Nominal,t1,t2) <- zip4 [1..] (tyConRoles tc1) tyArgs1 tyArgs2
+             , not (t1 `eqType` t2)
+             ]
+      | Just (tc,tyArgs) <- splitTyConApp_maybe ty1,
+        Just msg <- coercible_msg_for_tycon tc tyArgs
+      = msg
+      | Just (tc,tyArgs) <- splitTyConApp_maybe ty2,
+        Just msg <- coercible_msg_for_tycon tc tyArgs
+      = msg
+      | otherwise
+      = nest 2 $ hsep [ ptext $ sLit "because", quotes (ppr ty1),
+                        ptext $ sLit "and", quotes (ppr ty2),
+                        ptext $ sLit "are different types." ]
+      where
+        (clas, ~[ty1,ty2]) = getClassPredTys (ctPred ct)
+
+    coercible_msg_for_tycon tc tyArgs
+        | isRecursiveTyCon tc
+        = Just $ nest 2 $ hsep [ ptext $ sLit "because", quotes (ppr tc)
+                               , ptext $ sLit "is a recursive type constuctor" ]
+        | otherwise
+        = Nothing
 
 show_fixes :: [SDoc] -> SDoc
 show_fixes []     = empty
