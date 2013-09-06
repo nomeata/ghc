@@ -19,8 +19,7 @@ files for imported data types.
 module TcTyDecls(
         calcRecFlags, RecTyInfo(..), 
         calcSynCycles, calcClassCycles,
-        RoleAnnots,
-        tcTyConsOfTyCon
+        RoleAnnots
     ) where
 
 #include "HsVersions.h"
@@ -848,11 +847,4 @@ tcTyConsOfType ty
 
      go_tc tc tys = extendNameEnv (go_s tys) (tyConName tc) tc
      go_s tys = foldr (plusNameEnv . go) emptyNameEnv tys
-
-tcTyConsOfTyCon :: TyCon -> [TyCon]
-tcTyConsOfTyCon tc = nameEnvElts (add tc emptyNameEnv)
-  where
-     go env tc = foldr add env (tyConDataCons tc >>= dataConOrigArgTys >>= tcTyConsOfType)
-     add tc env | tyConName tc `elemNameEnv` env = env  
-                | otherwise = go (extendNameEnv env (tyConName tc) tc) tc
 \end{code}

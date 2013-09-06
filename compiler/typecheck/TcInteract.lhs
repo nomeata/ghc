@@ -43,7 +43,6 @@ import TcMType ( zonkTcPredType )
 import TcRnTypes
 import TcErrors
 import TcSMonad
-import TcTyDecls (tcTyConsOfTyCon)
 import Maybes( orElse )
 import Bag
 
@@ -1837,11 +1836,8 @@ getCoericbleInst rdr_env ty1 ty2
   | Just (tc1,tyArgs1) <- splitTyConApp_maybe ty1,
     Just (tc2,tyArgs2) <- splitTyConApp_maybe ty2,
     tc1 == tc2,
-    nominalArgsAgree tc1 tyArgs1 tyArgs2,
-    all (dataConsInScope rdr_env) (tcTyConsOfTyCon tc1)
-  = do -- Mark all used data constructors as used
-       mapM_ (markDataConsAsUsed rdr_env) (tcTyConsOfTyCon tc1)
-       -- We want evidence for all type arguments of role R
+    nominalArgsAgree tc1 tyArgs1 tyArgs2
+  = do -- We want evidence for all type arguments of role R
        arg_evs <- flip mapM (zip3 (tyConRoles tc1) tyArgs1 tyArgs2) $ \(r,ta1,ta2) ->
          case r of Nominal -> return (Nothing, EvCoercibleArgN ta1 {- == ta2, due to nominalArgsAgree -})
                    Representational -> do
@@ -1855,7 +1851,7 @@ getCoericbleInst rdr_env ty1 ty2
   | Just (tc,tyArgs) <- splitTyConApp_maybe ty1,
     Just (_, _, _) <- unwrapNewTyCon_maybe tc,
     not (isRecursiveTyCon tc),
-    dataConsInScope rdr_env tc -- Do noot look at all tcTyConsOfTyCon
+    dataConsInScope rdr_env tc
   = do markDataConsAsUsed rdr_env tc
        let concTy = newTyConInstRhs tc tyArgs 
        ct_ev <- requestCoercible concTy ty2
@@ -1865,7 +1861,7 @@ getCoericbleInst rdr_env ty1 ty2
   | Just (tc,tyArgs) <- splitTyConApp_maybe ty2,
     Just (_, _, _) <- unwrapNewTyCon_maybe tc,
     not (isRecursiveTyCon tc),
-    dataConsInScope rdr_env tc -- Do noot look at all tcTyConsOfTyCon
+    dataConsInScope rdr_env tc
   = do markDataConsAsUsed rdr_env tc
        let concTy = newTyConInstRhs tc tyArgs 
        ct_ev <- requestCoercible ty1 concTy
@@ -1919,10 +1915,10 @@ are present:
      * the nominal type arguments are not changed,
      * the phantom type arguments may change arbitrarily
      * the representational type arguments are again Coercible
-     * the data constructors of C are in scope and
-     * the data constructors of all type constructors used in the definition of C are in scope.
-       This is required as otherwise the previous check can be circumvented by
-       just adding a local data type around C.
+    We do _not_ check whether the data constructors of C (and the data
+    constructors of type cons used in the definition of C) are in scope. If a
+    library author wants to prevent coercion via Coercible, he needs to
+    annotate the type variables as Nominal (data Set a@n).
  3. instance Coercible r b => Coercible (NT t1 t2 ...) b
     instance Coercible a r => Coercible a (NT t1 t2 ...)
     for a newtype constructor NT where
