@@ -605,7 +605,7 @@ mkEqErr1 ctxt ct
                       ct is_oriented ty1 ty2 }
   where
     ev         = cc_ev ct
-    (_, ty1, ty2) = getEqRolePredTys (ctEvPred ev)
+    (ty1, ty2) = getEqPredTys (ctEvPred ev)
 
     mk_given :: [Implication] -> (CtLoc, SDoc)
     -- For given constraints we overwrite the env (and hence src-loc)

@@ -35,7 +35,7 @@ import Coercion( LeftOrRight(..), pickLR )
 import PprCore ()   -- Instance OutputableBndr TyVar
 import TypeRep  -- Knows type representation
 import TcType
-import Type( tyConAppArgN, tyConAppTyCon_maybe, getEqRolePredTys, coAxNthLHS )
+import Type( tyConAppArgN, tyConAppTyCon_maybe, getEqPredTys, coAxNthLHS )
 import TysPrim( funTyCon )
 import TyCon
 import CoAxiom
@@ -217,8 +217,8 @@ tcCoercionKind co = go co
   where 
     go (TcRefl ty)            = Pair ty ty
     go (TcLetCo _ co)         = go co
-    go (TcCastCo _ co)        = case getEqRolePredTys (pSnd (go co)) of
-                                   (_,ty1,ty2) -> Pair ty1 ty2
+    go (TcCastCo _ co)        = case getEqPredTys (pSnd (go co)) of
+                                   (ty1,ty2) -> Pair ty1 ty2
     go (TcTyConAppCo tc cos)  = mkTyConApp tc <$> (sequenceA $ map go cos)
     go (TcAppCo co1 co2)      = mkAppTy <$> go co1 <*> go co2
     go (TcForAllCo tv co)     = mkForAllTy tv <$> go co
