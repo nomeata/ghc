@@ -38,6 +38,9 @@ module TcSMonad (
 
     -- Getting and setting the flattening cache
     addSolvedDict, addSolvedFunEq, getFlattenSkols,
+
+    -- Marking stuff as used
+    addUsedRdrNamesTcS,
     
     deferTcSForAllEq, 
     
@@ -118,7 +121,8 @@ import Class
 import TyCon
 
 import Name
-import RdrName (GlobalRdrEnv)
+import RdrName (RdrName, GlobalRdrEnv)
+import RnEnv (addUsedRdrNames)
 import Var
 import VarEnv
 import Outputable
@@ -1265,6 +1269,12 @@ getTopEnv = wrapTcS $ TcM.getTopEnv
 
 getGblEnv :: TcS TcGblEnv 
 getGblEnv = wrapTcS $ TcM.getGblEnv 
+
+-- Setting names as used (used in the deriving of Coercible evidence)
+-- Too hackish to expose it to TcS? In that case somehow extract the used
+-- constructors from the result of solveInteract
+addUsedRdrNamesTcS :: [RdrName] -> TcS ()
+addUsedRdrNamesTcS names = wrapTcS  $ addUsedRdrNames names
 
 -- Various smaller utilities [TODO, maybe will be absorbed in the instance matcher]
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

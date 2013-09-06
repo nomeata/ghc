@@ -31,8 +31,8 @@ import Class
 import TyCon
 import DataCon
 import Name
-import RdrName ( GlobalRdrEnv, lookupGRE_Name )
-
+import RdrName ( GlobalRdrEnv, lookupGRE_Name, mkRdrQual, is_as,
+                 is_decl, Provenance(Imported), gre_prov )
 import FunDeps
 
 import TcEvidence
@@ -1839,7 +1839,9 @@ getCoericbleInst rdr_env ty1 ty2
     tc1 == tc2,
     nominalArgsAgree tc1 tyArgs1 tyArgs2,
     all (dataConsInScope rdr_env) (tcTyConsOfTyCon tc1)
-  = do -- We want evidence for all type arguments of role R
+  = do -- Mark all used data constructors as used
+       mapM_ (markDataConsAsUsed rdr_env) (tcTyConsOfTyCon tc1)
+       -- We want evidence for all type arguments of role R
        arg_evs <- flip mapM (zip3 (tyConRoles tc1) tyArgs1 tyArgs2) $ \(r,ta1,ta2) ->
          case r of Nominal -> return (Nothing, EvCoercibleArgN ta1 {- == ta2, due to nominalArgsAgree -})
                    Representational -> do
@@ -1854,7 +1856,8 @@ getCoericbleInst rdr_env ty1 ty2
     Just (_, _, _) <- unwrapNewTyCon_maybe tc,
     not (isRecursiveTyCon tc),
     dataConsInScope rdr_env tc -- Do noot look at all tcTyConsOfTyCon
-  = do let concTy = newTyConInstRhs tc tyArgs 
+  = do markDataConsAsUsed rdr_env tc
+       let concTy = newTyConInstRhs tc tyArgs 
        ct_ev <- requestCoercible concTy ty2
        return $ GenInst (freshGoals [ct_ev])
               $ EvCoercible (EvCoercibleNewType CLeft tc tyArgs (getEvTerm ct_ev))
@@ -1863,7 +1866,8 @@ getCoericbleInst rdr_env ty1 ty2
     Just (_, _, _) <- unwrapNewTyCon_maybe tc,
     not (isRecursiveTyCon tc),
     dataConsInScope rdr_env tc -- Do noot look at all tcTyConsOfTyCon
-  = do let concTy = newTyConInstRhs tc tyArgs 
+  = do markDataConsAsUsed rdr_env tc
+       let concTy = newTyConInstRhs tc tyArgs 
        ct_ev <- requestCoercible ty1 concTy
        return $ GenInst (freshGoals [ct_ev])
               $ EvCoercible (EvCoercibleNewType CRight tc tyArgs (getEvTerm ct_ev))
@@ -1883,6 +1887,16 @@ dataConsInScope rdr_env tc = not hidden_data_cons
     hidden_data_cons = not (isWiredInName (tyConName tc)) &&
                        (isAbstractTyCon tc || any not_in_scope data_con_names)
     not_in_scope dc  = null (lookupGRE_Name rdr_env dc)
+
+markDataConsAsUsed :: GlobalRdrEnv -> TyCon -> TcS ()
+markDataConsAsUsed rdr_env tc = addUsedRdrNamesTcS
+  [ mkRdrQual (is_as (is_decl imp_spec)) occ
+  | dc <- tyConDataCons tc
+  , let dc_name = dataConName dc
+        occ  = nameOccName dc_name
+        gres = lookupGRE_Name rdr_env dc_name
+  , not (null gres)
+  , Imported (imp_spec:_) <- [gre_prov (head gres)] ]
 
 requestCoercible :: TcType -> TcType -> TcS MaybeNew
 requestCoercible ty1 ty2 = newWantedEvVar (coercibleClass `mkClassPred` [ty1, ty2]) 
