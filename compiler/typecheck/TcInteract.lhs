@@ -1903,7 +1903,7 @@ Note [Coercible Instances]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 The class Coercible is special: There are no regular instances, and the user
 cannot even define them. Instead, the type checker will create instances and
-their evidence out of thin air, in getCoericbleInst.  The following “instance”
+their evidence out of thin air, in getCoericbleInst. The following “instances”
 are present:
 
  1. instance Coercible a a
