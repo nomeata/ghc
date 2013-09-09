@@ -1892,9 +1892,9 @@ requestCoercible ty1 ty2 = newWantedEvVar (coercibleClass `mkClassPred` [ty1, ty
 Note [Coercible Instances]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 The class Coercible is special: There are no regular instances, and the user
-cannot even define them (TODO: Actually do that). Instead, the type checker
-will create instances and their evidence out of thin air, in getCoericbleInst.
-The following “instance” are present:
+cannot even define them. Instead, the type checker will create instances and
+their evidence out of thin air, in getCoericbleInst.  The following “instance”
+are present:
 
  1. instance Coercible a a
     for any type a.

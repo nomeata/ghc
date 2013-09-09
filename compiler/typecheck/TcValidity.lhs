@@ -22,6 +22,7 @@ import TcSimplify ( simplifyTop )
 import TypeRep
 import TcType
 import TcMType
+import TysWiredIn ( coercibleClass )
 import Type
 import Unify( tcMatchTyX )
 import Kind
@@ -841,6 +842,10 @@ checkValidInstance :: UserTypeCtxt -> LHsType Name -> Type
 checkValidInstance ctxt hs_type ty
   | Just (clas,inst_tys) <- getClassPredTys_maybe tau
   , inst_tys `lengthIs` classArity clas
+  , clas `elem` abstractClasses
+  = failWithTc (ptext (sLit "Manual instances forbidden for abstact class") <+> ppr clas)
+  | Just (clas,inst_tys) <- getClassPredTys_maybe tau
+  , inst_tys `lengthIs` classArity clas
   = do  { setSrcSpan head_loc (checkValidInstHead ctxt clas inst_tys)
         ; checkValidTheta ctxt theta
 
@@ -880,6 +885,8 @@ checkValidInstance ctxt hs_type ty
     head_loc = case hs_type of
                  L _ (HsForAllTy _ _ _ (L loc _)) -> loc
                  L loc _                          -> loc
+
+    abstractClasses = [ coercibleClass ]
 \end{code}
 
 Note [Paterson conditions]
