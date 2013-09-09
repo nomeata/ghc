@@ -43,7 +43,6 @@ import PrelNames
 import VarEnv
 import VarSet
 import Name
-import Class ( Class )
 
 import Util
 import Bag
@@ -504,7 +503,7 @@ data EvTerm
   | EvLit EvLit                  -- Dictionary for class "SingI" for type lits.
                                  -- Note [SingI and EvLit]
 
-  | EvCoercible Class EvCoercible -- Dictionary for "Coercible a b" (HACK: class Coercible not built in yet)
+  | EvCoercible EvCoercible      -- Dictionary for "Coercible a b"
                                  -- Note [Coercible Instances]
 
   deriving( Data.Data, Data.Typeable)
@@ -643,7 +642,7 @@ evVarsOfTerm (EvCast tm co)       = evVarsOfTerm tm `unionVarSet` coVarsOfTcCo c
 evVarsOfTerm (EvTupleMk evs)      = evVarsOfTerms evs
 evVarsOfTerm (EvDelayedError _ _) = emptyVarSet
 evVarsOfTerm (EvLit _)            = emptyVarSet
-evVarsOfTerm (EvCoercible _ evnt)        = evVarsOfEvCoercible evnt
+evVarsOfTerm (EvCoercible evnt)   = evVarsOfEvCoercible evnt
 
 evVarsOfEvCoercible :: EvCoercible -> VarSet
 evVarsOfEvCoercible (EvCoercibleRefl _)          = emptyVarSet
@@ -711,7 +710,7 @@ instance Outputable EvTerm where
   ppr (EvSuperClass d n) = ptext (sLit "sc") <> parens (ppr (d,n))
   ppr (EvDFunApp df tys ts) = ppr df <+> sep [ char '@' <> ppr tys, ppr ts ]
   ppr (EvLit l)          = ppr l
-  ppr (EvCoercible _ co) = ptext (sLit "Coercible") <+> ppr co
+  ppr (EvCoercible co)   = ptext (sLit "Coercible") <+> ppr co
   ppr (EvDelayedError ty msg) =     ptext (sLit "error") 
                                 <+> sep [ char '@' <> ppr ty, ppr msg ]
 

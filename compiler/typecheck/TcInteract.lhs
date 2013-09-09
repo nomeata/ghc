@@ -24,7 +24,8 @@ import InstEnv( lookupInstEnv, instanceDFunId )
 
 import Var
 import TcType
-import PrelNames (singIClassName, ipClassNameKey, coercibleClassName )
+import PrelNames (singIClassName, ipClassNameKey )
+import TysWiredIn ( coercibleClass )
 import Id( idType )
 import Class
 import TyCon
@@ -1737,10 +1738,10 @@ matchClassInst _ clas [ k, ty ] _
   unexpected = panicTcS (text "Unexpected evidence for SingI")
 
 matchClassInst _ clas [ ty1, ty2 ] _
-  | className clas == coercibleClassName =  do
+  | clas == coercibleClass =  do
       traceTcS "matchClassInst for" $ ppr clas <+> ppr ty1 <+> ppr ty2
       rdr_env <- getGlobalRdrEnvTcS
-      ev <- getCoericbleInst rdr_env clas ty1 ty2
+      ev <- getCoericbleInst rdr_env ty1 ty2
       traceTcS "matchClassInst returned" $ ppr ev
       return ev
 
@@ -1827,11 +1828,11 @@ matchClassInst inerts clas tys loc
 
 -- See Note [Coercible Instances]
 -- Changes to this logic should likely be reflected in coercible_msg in TcErrors.
-getCoericbleInst :: GlobalRdrEnv -> Class -> TcType -> TcType -> TcS LookupInstResult
-getCoericbleInst rdr_env cls ty1 ty2
+getCoericbleInst :: GlobalRdrEnv -> TcType -> TcType -> TcS LookupInstResult
+getCoericbleInst rdr_env ty1 ty2
   | ty1 `eqType` ty2
   = do return $ GenInst []
-              $ EvCoercible cls (EvCoercibleRefl ty1)
+              $ EvCoercible (EvCoercibleRefl ty1)
 
   | Just (tc1,tyArgs1) <- splitTyConApp_maybe ty1,
     Just (tc2,tyArgs2) <- splitTyConApp_maybe ty2,
@@ -1842,30 +1843,30 @@ getCoericbleInst rdr_env cls ty1 ty2
        arg_evs <- flip mapM (zip3 (tyConRoles tc1) tyArgs1 tyArgs2) $ \(r,ta1,ta2) ->
          case r of Nominal -> return (Nothing, EvCoercibleArgN ta1 {- == ta2, due to nominalArgsAgree -})
                    Representational -> do
-                        ct_ev <- requestCoercible cls ta1 ta2
+                        ct_ev <- requestCoercible ta1 ta2
                         return (freshGoal ct_ev, EvCoercibleArgR (getEvTerm ct_ev))
                    Phantom -> do
                         return (Nothing, EvCoercibleArgP ta1 ta2)
        return $ GenInst (mapMaybe fst arg_evs)
-              $ EvCoercible cls (EvCoercibleTyCon tc1 (map snd arg_evs))
+              $ EvCoercible (EvCoercibleTyCon tc1 (map snd arg_evs))
 
   | Just (tc,tyArgs) <- splitTyConApp_maybe ty1,
     Just (_, _, _) <- unwrapNewTyCon_maybe tc,
     not (isRecursiveTyCon tc),
     dataConsInScope rdr_env tc -- Do noot look at all tcTyConsOfTyCon
   = do let concTy = newTyConInstRhs tc tyArgs 
-       ct_ev <- requestCoercible cls concTy ty2
+       ct_ev <- requestCoercible concTy ty2
        return $ GenInst (freshGoals [ct_ev])
-              $ EvCoercible cls (EvCoercibleNewType CLeft tc tyArgs (getEvTerm ct_ev))
+              $ EvCoercible (EvCoercibleNewType CLeft tc tyArgs (getEvTerm ct_ev))
 
   | Just (tc,tyArgs) <- splitTyConApp_maybe ty2,
     Just (_, _, _) <- unwrapNewTyCon_maybe tc,
     not (isRecursiveTyCon tc),
     dataConsInScope rdr_env tc -- Do noot look at all tcTyConsOfTyCon
   = do let concTy = newTyConInstRhs tc tyArgs 
-       ct_ev <- newWantedEvVar (cls `mkClassPred` [ty1, concTy])
+       ct_ev <- requestCoercible ty1 concTy
        return $ GenInst (freshGoals [ct_ev])
-              $ EvCoercible cls (EvCoercibleNewType CRight tc tyArgs (getEvTerm ct_ev))
+              $ EvCoercible (EvCoercibleNewType CRight tc tyArgs (getEvTerm ct_ev))
 
   | otherwise
   = return NoInstance
@@ -1883,8 +1884,8 @@ dataConsInScope rdr_env tc = not hidden_data_cons
                        (isAbstractTyCon tc || any not_in_scope data_con_names)
     not_in_scope dc  = null (lookupGRE_Name rdr_env dc)
 
-requestCoercible :: Class -> TcType -> TcType -> TcS MaybeNew
-requestCoercible cls ty1 ty2 = newWantedEvVar (cls `mkClassPred` [ty1, ty2]) 
+requestCoercible :: TcType -> TcType -> TcS MaybeNew
+requestCoercible ty1 ty2 = newWantedEvVar (coercibleClass `mkClassPred` [ty1, ty2]) 
 
 \end{code}
 

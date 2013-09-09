@@ -67,7 +67,7 @@ module TysWiredIn (
 
         -- * Equality predicates
         eqTyCon_RDR, eqTyCon, eqTyConName, eqBoxDataCon,
-        eqReprBoxTyCon, eqReprBoxDataCon,
+        coercibleTyCon, coercibleDataCon, coercibleClass,
 
     ) where
 
@@ -86,6 +86,7 @@ import Type             ( mkTyConApp )
 import DataCon
 import Var
 import TyCon
+import Class            ( Class, mkClass )
 import TypeRep
 import RdrName
 import Name
@@ -145,7 +146,7 @@ wiredInTyCons = [ unitTyCon     -- Not treated like other tuples, because
               , listTyCon
               , parrTyCon
               , eqTyCon
-              , eqReprBoxTyCon
+              , coercibleTyCon
               , typeNatKindCon
               , typeSymbolKindCon
               ]
@@ -171,9 +172,9 @@ eqTyConName, eqBoxDataConName :: Name
 eqTyConName      = mkWiredInTyConName   BuiltInSyntax gHC_TYPES (fsLit "~")   eqTyConKey      eqTyCon
 eqBoxDataConName = mkWiredInDataConName UserSyntax    gHC_TYPES (fsLit "Eq#") eqBoxDataConKey eqBoxDataCon
 
-eqReprBoxTyConName, eqReprBoxDataConName :: Name
-eqReprBoxTyConName   = mkWiredInTyConName   UserSyntax gHC_TYPES (fsLit "EqR")  eqReprBoxTyConKey   eqReprBoxTyCon
-eqReprBoxDataConName = mkWiredInDataConName UserSyntax gHC_TYPES (fsLit "EqR#") eqReprBoxDataConKey eqReprBoxDataCon
+coercibleTyConName, coercibleDataConName :: Name
+coercibleTyConName   = mkWiredInTyConName   UserSyntax gHC_TYPES (fsLit "Coercible")  coercibleTyConKey   coercibleTyCon
+coercibleDataConName = mkWiredInDataConName UserSyntax gHC_TYPES (fsLit "MkCoercible") coercibleDataConKey coercibleDataCon
 
 charTyConName, charDataConName, intTyConName, intDataConName :: Name
 charTyConName     = mkWiredInTyConName   UserSyntax gHC_TYPES (fsLit "Char") charTyConKey charTyCon
@@ -456,20 +457,24 @@ eqBoxDataCon = pcDataCon eqBoxDataConName args [TyConApp eqPrimTyCon (map mkTyVa
     args = [kv, a, b]
 
 
-eqReprBoxTyCon :: TyCon
-eqReprBoxTyCon = mkAlgTyCon
-    eqReprBoxTyConName kind tvs [Representational, Representational] Nothing
-    [{- no theta -}] rhs NoParentTyCon NonRecursive False Nothing
-  where kind = mkArrowKinds [liftedTypeKind, liftedTypeKind] liftedTypeKind
+coercibleTyCon :: TyCon
+coercibleTyCon = mkClassTyCon
+    coercibleTyConName kind tvs [Representational, Representational] 
+    rhs coercibleClass NonRecursive
+  where kind = mkArrowKinds [liftedTypeKind, liftedTypeKind] constraintKind
         a:b:_ = tyVarList liftedTypeKind
         tvs = [a, b]
-        rhs = DataTyCon [eqReprBoxDataCon] False
+        rhs = DataTyCon [coercibleDataCon] False
 
-eqReprBoxDataCon :: DataCon
-eqReprBoxDataCon = pcDataCon eqReprBoxDataConName args [TyConApp eqReprPrimTyCon (liftedTypeKind : map mkTyVarTy args)] eqReprBoxTyCon
+coercibleDataCon :: DataCon
+coercibleDataCon = pcDataCon coercibleDataConName args [TyConApp eqReprPrimTyCon (liftedTypeKind : map mkTyVarTy args)] coercibleTyCon
   where
     a:b:_ = tyVarList liftedTypeKind
     args = [a, b]
+
+coercibleClass :: Class
+coercibleClass = mkClass (tyConTyVars coercibleTyCon) [] [] [] [] [] coercibleTyCon
+
 \end{code}
 
 \begin{code}

@@ -30,10 +30,9 @@ import InstEnv
 import TyCon
 import DataCon
 import TcEvidence
-import PrelNames        ( coercibleClassName )
+import TysWiredIn       ( coercibleClass )
 import Name
 import RdrName          ( lookupGRE_Name )
-import Class            ( className )
 import Id 
 import Var
 import VarSet
@@ -1075,7 +1074,7 @@ mk_dict_err ctxt (ct, (matches, unifiers, safe_haskell))
     -- Therefore its logic has to stay in sync with getCoericbleInst in TcInteract.
     -- See Note [Coercible Instances]
     coercible_msg rdr_env
-      | className clas /= coercibleClassName = empty
+      | clas /= coercibleClass = empty
       | Just (tc1,tyArgs1) <- splitTyConApp_maybe ty1,
         Just (tc2,tyArgs2) <- splitTyConApp_maybe ty2,
         tc1 == tc2

@@ -138,7 +138,7 @@ ghcPrimIds
     nullAddrId,
     seqId,
     magicSingIId,
-    castEqRId
+    coerceId
     ]
 \end{code}
 
@@ -1037,7 +1037,7 @@ they can unify with both unlifted and lifted types.  Hence we provide
 another gun with which to shoot yourself in the foot.
 
 \begin{code}
-lazyIdName, unsafeCoerceName, nullAddrName, seqName, realWorldName, coercionTokenName, magicSingIName, castEqRName :: Name
+lazyIdName, unsafeCoerceName, nullAddrName, seqName, realWorldName, coercionTokenName, magicSingIName, coerceName :: Name
 unsafeCoerceName  = mkWiredInIdName gHC_PRIM (fsLit "unsafeCoerce#") unsafeCoerceIdKey  unsafeCoerceId
 nullAddrName      = mkWiredInIdName gHC_PRIM (fsLit "nullAddr#")     nullAddrIdKey      nullAddrId
 seqName           = mkWiredInIdName gHC_PRIM (fsLit "seq")           seqIdKey           seqId
@@ -1045,7 +1045,7 @@ realWorldName     = mkWiredInIdName gHC_PRIM (fsLit "realWorld#")    realWorldPr
 lazyIdName        = mkWiredInIdName gHC_MAGIC (fsLit "lazy")         lazyIdKey           lazyId
 coercionTokenName = mkWiredInIdName gHC_PRIM (fsLit "coercionToken#") coercionTokenIdKey coercionTokenId
 magicSingIName    = mkWiredInIdName gHC_PRIM (fsLit "magicSingI")    magicSingIKey magicSingIId
-castEqRName       = mkWiredInIdName gHC_PRIM (fsLit "castEqR")       castEqRKey    castEqRId
+coerceName        = mkWiredInIdName gHC_PRIM (fsLit "coerce")        coerceKey          coerceId
 \end{code}
 
 \begin{code}
@@ -1122,19 +1122,19 @@ magicSingIId = pcMiscPrelId magicSingIName ty info
 
 --------------------------------------------------------------------------------
 
-castEqRId :: Id
-castEqRId = pcMiscPrelId castEqRName ty info
+coerceId :: Id
+coerceId = pcMiscPrelId coerceName ty info
   where
-    info = noCafIdInfo `setInlinePragInfo` neverInlinePragma
+    info = noCafIdInfo `setInlinePragInfo` alwaysInlinePragma
                        `setUnfoldingInfo`  mkCompulsoryUnfolding rhs
-    eqRTy = mkTyConApp eqReprBoxTyCon [alphaTy, betaTy]
+    eqRTy = mkTyConApp coercibleTyCon [alphaTy, betaTy]
     eqRPrimTy = mkTyConApp eqReprPrimTyCon [liftedTypeKind, alphaTy, betaTy]
     ty   = mkForAllTys [alphaTyVar, betaTyVar] (mkFunTys [eqRTy, alphaTy] betaTy)
 
     [eqR,x,eq] = mkTemplateLocals [eqRTy, alphaTy,eqRPrimTy]
     rhs = mkLams [alphaTyVar,betaTyVar,eqR,x] $
           mkWildCase (Var eqR) eqRTy betaTy $
-	  [(DataAlt eqReprBoxDataCon, [eq], Cast (Var x) (CoVarCo eq))]
+	  [(DataAlt coercibleDataCon, [eq], Cast (Var x) (CoVarCo eq))]
 \end{code}
 
 Note [Unsafe coerce magic]
