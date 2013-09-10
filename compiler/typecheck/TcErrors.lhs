@@ -20,6 +20,7 @@ import TcRnTypes
 import TcRnMonad
 import TcMType
 import TcType
+import TcTyDecls (tcTyConsOfTyCon)
 import TypeRep
 import Type
 import Kind ( isKind )
@@ -937,8 +938,9 @@ mk_dict_err ctxt (ct, (matches, unifiers, safe_haskell))
   = do { let (is_ambig, ambig_msg) = mkAmbigMsg ct
        ; (ctxt, binds_msg) <- relevantBindings True ctxt ct
        ; traceTc "mk_dict_err" (ppr ct $$ ppr is_ambig $$ ambig_msg)
+       ; safe_mod <- safeLanguageOn `fmap` getDynFlags
        ; rdr_env <- getGlobalRdrEnv
-       ; return (ctxt, cannot_resolve_msg rdr_env is_ambig binds_msg ambig_msg) }
+       ; return (ctxt, cannot_resolve_msg safe_mod rdr_env is_ambig binds_msg ambig_msg) }
 
   | not safe_haskell   -- Some matches => overlap errors
   = return (ctxt, overlap_msg)
@@ -953,8 +955,9 @@ mk_dict_err ctxt (ct, (matches, unifiers, safe_haskell))
     givens      = getUserGivens ctxt
     all_tyvars  = all isTyVarTy tys
 
-    cannot_resolve_msg rdr_env has_ambig_tvs binds_msg ambig_msg
-      = vcat [ addArising orig (no_inst_herald <+> pprParendType pred $$ coercible_msg rdr_env)
+    cannot_resolve_msg safe_mod rdr_env has_ambig_tvs binds_msg ambig_msg
+      = vcat [ addArising orig (no_inst_herald <+> pprParendType pred $$
+                                coercible_msg safe_mod rdr_env)
              , vcat (pp_givens givens)
              , ppWhen (has_ambig_tvs && not (null unifiers && null givens))
                (vcat [ ambig_msg, binds_msg, potential_msg ])
@@ -1072,12 +1075,27 @@ mk_dict_err ctxt (ct, (matches, unifiers, safe_haskell))
     -- This function tries to reconstruct why a "Coercible ty1 ty2" constraing is left over.
     -- Therefore its logic has to stay in sync with getCoericbleInst in TcInteract.
     -- See Note [Coercible Instances]
-    coercible_msg rdr_env
+    coercible_msg safe_mod rdr_env
       | clas /= coercibleClass = empty
       | Just (tc1,tyArgs1) <- splitTyConApp_maybe ty1,
         Just (tc2,tyArgs2) <- splitTyConApp_maybe ty2,
         tc1 == tc2
       = nest 2 $ vcat $ 
+          -- Only for safe haskell: First complain if tc is abstract, only if
+          -- not check if the type constructors therein are abstract
+          (if safe_mod
+           then case tyConAbstractMsg rdr_env tc1 empty of
+                    Just msg ->
+                       [ msg $$ ptext (sLit "as required in SafeHaskell mode") ]
+                    Nothing ->
+                       [ msg
+                       | tc <- tcTyConsOfTyCon tc1
+                       , Just msg <- return $ 
+                           tyConAbstractMsg rdr_env tc $
+                             parens $ ptext (sLit "used within") <+> quotes (ppr tc1)
+                       ]
+           else [] 
+          ) ++
           [ fsep [ hsep [ ptext $ sLit "because the", speakNth n, ptext $ sLit "type argument"]
                  , hsep [ ptext $ sLit "of", quotes (ppr tc1), ptext $ sLit "has role Nominal,"]
                  , ptext $ sLit "but the arguments"
@@ -1109,18 +1127,18 @@ mk_dict_err ctxt (ct, (matches, unifiers, safe_haskell))
         = Just $ nest 2 $ hsep [ ptext $ sLit "because", quotes (ppr tc)
                                , ptext $ sLit "is a recursive type constuctor" ]
         | isNewTyCon tc
-        = tyConAbstractMsg rdr_env tc
+        = tyConAbstractMsg rdr_env tc empty
         | otherwise
         = Nothing
 
-    tyConAbstractMsg rdr_env tc
+    tyConAbstractMsg rdr_env tc occExpl
         | isAbstractTyCon tc || dataConMissing rdr_env tc = Just $ vcat $
-            [ fsep [ ptext $ sLit "because the type constructor", quotes (ppr tc)
+            [ fsep [ ptext $ sLit "because the type constructor", quotes (ppr tc) <+> occExpl
                    , ptext $ sLit "is abstract" ]
             | isAbstractTyCon tc
             ] ++
             [ fsep [ ptext (sLit "because the constructor") <> plural (tyConDataCons tc)
-                   , ptext (sLit "of") <+> quotes (ppr tc)
+                   , ptext (sLit "of") <+> quotes (ppr tc) <+> occExpl
                    , isOrAre (tyConDataCons tc) <+> ptext (sLit "not imported") ]
             | dataConMissing rdr_env tc
             ]

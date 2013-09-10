@@ -43,6 +43,7 @@ import TcMType ( zonkTcPredType )
 import TcRnTypes
 import TcErrors
 import TcSMonad
+import TcTyDecls (tcTyConsOfTyCon)
 import Maybes( orElse )
 import Bag
 
@@ -1740,7 +1741,8 @@ matchClassInst _ clas [ ty1, ty2 ] _
   | clas == coercibleClass =  do
       traceTcS "matchClassInst for" $ ppr clas <+> ppr ty1 <+> ppr ty2
       rdr_env <- getGlobalRdrEnvTcS
-      ev <- getCoericbleInst rdr_env ty1 ty2
+      safeMode <- safeLanguageOn `fmap` getDynFlags
+      ev <- getCoericbleInst safeMode rdr_env ty1 ty2
       traceTcS "matchClassInst returned" $ ppr ev
       return ev
 
@@ -1827,8 +1829,8 @@ matchClassInst inerts clas tys loc
 
 -- See Note [Coercible Instances]
 -- Changes to this logic should likely be reflected in coercible_msg in TcErrors.
-getCoericbleInst :: GlobalRdrEnv -> TcType -> TcType -> TcS LookupInstResult
-getCoericbleInst rdr_env ty1 ty2
+getCoericbleInst :: Bool -> GlobalRdrEnv -> TcType -> TcType -> TcS LookupInstResult
+getCoericbleInst safeMode rdr_env ty1 ty2
   | ty1 `eqType` ty2
   = do return $ GenInst []
               $ EvCoercible (EvCoercibleRefl ty1)
@@ -1836,8 +1838,11 @@ getCoericbleInst rdr_env ty1 ty2
   | Just (tc1,tyArgs1) <- splitTyConApp_maybe ty1,
     Just (tc2,tyArgs2) <- splitTyConApp_maybe ty2,
     tc1 == tc2,
-    nominalArgsAgree tc1 tyArgs1 tyArgs2
-  = do -- We want evidence for all type arguments of role R
+    nominalArgsAgree tc1 tyArgs1 tyArgs2,
+    not safeMode || all (dataConsInScope rdr_env) (tcTyConsOfTyCon tc1)
+  = do -- Mark all used data constructors as used
+       when safeMode $ mapM_ (markDataConsAsUsed rdr_env) (tcTyConsOfTyCon tc1)
+       -- We want evidence for all type arguments of role R
        arg_evs <- flip mapM (zip3 (tyConRoles tc1) tyArgs1 tyArgs2) $ \(r,ta1,ta2) ->
          case r of Nominal -> return (Nothing, EvCoercibleArgN ta1 {- == ta2, due to nominalArgsAgree -})
                    Representational -> do
@@ -1851,7 +1856,7 @@ getCoericbleInst rdr_env ty1 ty2
   | Just (tc,tyArgs) <- splitTyConApp_maybe ty1,
     Just (_, _, _) <- unwrapNewTyCon_maybe tc,
     not (isRecursiveTyCon tc),
-    dataConsInScope rdr_env tc
+    dataConsInScope rdr_env tc -- Do noot look at all tcTyConsOfTyCon
   = do markDataConsAsUsed rdr_env tc
        let concTy = newTyConInstRhs tc tyArgs 
        ct_ev <- requestCoercible concTy ty2
@@ -1861,7 +1866,7 @@ getCoericbleInst rdr_env ty1 ty2
   | Just (tc,tyArgs) <- splitTyConApp_maybe ty2,
     Just (_, _, _) <- unwrapNewTyCon_maybe tc,
     not (isRecursiveTyCon tc),
-    dataConsInScope rdr_env tc
+    dataConsInScope rdr_env tc -- Do noot look at all tcTyConsOfTyCon
   = do markDataConsAsUsed rdr_env tc
        let concTy = newTyConInstRhs tc tyArgs 
        ct_ev <- requestCoercible ty1 concTy
@@ -1915,10 +1920,11 @@ are present:
      * the nominal type arguments are not changed,
      * the phantom type arguments may change arbitrarily
      * the representational type arguments are again Coercible
-    We do _not_ check whether the data constructors of C (and the data
-    constructors of type cons used in the definition of C) are in scope. If a
-    library author wants to prevent coercion via Coercible, he needs to
-    annotate the type variables as Nominal (data Set a@n).
+    Furthermore in Safe Haskell code, we check that
+     * the data constructors of C are in scope and
+     * the data constructors of all type constructors used in the definition of C are in scope.
+       This is required as otherwise the previous check can be circumvented by
+       just adding a local data type around C.
  3. instance Coercible r b => Coercible (NT t1 t2 ...) b
     instance Coercible a r => Coercible a (NT t1 t2 ...)
     for a newtype constructor NT where
