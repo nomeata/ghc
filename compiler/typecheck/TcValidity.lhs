@@ -747,6 +747,9 @@ checkValidInstHead :: UserTypeCtxt -> Class -> [Type] -> TcM ()
 checkValidInstHead ctxt clas cls_args
   = do { dflags <- getDynFlags
 
+       ; checkTc (clas `notElem` abstractClasses)
+                 (instTypeErr clas cls_args abstract_class_msg)
+
            -- Check language restrictions; 
            -- but not for SPECIALISE isntance pragmas
        ; let ty_args = dropWhile isKind cls_args
@@ -797,6 +800,12 @@ checkValidInstHead ctxt clas cls_args
                 text "No parameters in the instance head." $$
                 text "Use -XNullaryTypeClasses if you want to allow this.")
 
+    abstract_class_msg =
+                text "The class is abstract, manual instances are not permitted."
+
+abstractClasses :: [ Class ]
+abstractClasses = [ coercibleClass ]
+
 instTypeErr :: Class -> [Type] -> SDoc -> SDoc
 instTypeErr cls tys msg
   = hang (ptext (sLit "Illegal instance declaration for") 
@@ -842,10 +851,6 @@ checkValidInstance :: UserTypeCtxt -> LHsType Name -> Type
 checkValidInstance ctxt hs_type ty
   | Just (clas,inst_tys) <- getClassPredTys_maybe tau
   , inst_tys `lengthIs` classArity clas
-  , clas `elem` abstractClasses
-  = failWithTc (ptext (sLit "Manual instances forbidden for abstact class") <+> ppr clas)
-  | Just (clas,inst_tys) <- getClassPredTys_maybe tau
-  , inst_tys `lengthIs` classArity clas
   = do  { setSrcSpan head_loc (checkValidInstHead ctxt clas inst_tys)
         ; checkValidTheta ctxt theta
 
@@ -885,8 +890,6 @@ checkValidInstance ctxt hs_type ty
     head_loc = case hs_type of
                  L _ (HsForAllTy _ _ _ (L loc _)) -> loc
                  L loc _                          -> loc
-
-    abstractClasses = [ coercibleClass ]
 \end{code}
 
 Note [Paterson conditions]
