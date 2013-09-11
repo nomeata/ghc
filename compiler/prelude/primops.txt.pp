@@ -2279,6 +2279,58 @@ primop  TraceMarkerOp "traceMarker#" GenPrimOp
    has_side_effects = True
    out_of_line      = True
 
+------------------------------------------------------------------------
+section "Safe coercions"
+------------------------------------------------------------------------
+
+pseudoop   "coerce"
+   Coercible a b => a -> b
+   { The function {\tt coerce} allows you to safely convert between values of
+     types that have the same representation with no run-time overhead. In the
+     simplest case you can use it instead of a newtype constructor, to go from
+     the newtype's concrete type to the abstract type. But it also works in
+     more complicated settings, e.g. converting a list of newtypes to a list of
+     concrete types.
+   }
+
+primclass Coercible a b
+   { This two-parameter class has instances for types {\tt a} and {\tt b} if
+     the compiler can infer that they have the same representation. This class
+     does not have regular instances; instead they are create on-the-fly during
+     type-checking. Trying to manually create an instance of {\tt Coercible}
+     is an error.
+
+     Nevertheless one can pretend that the following three kinds of instances
+     exist. First, as a trivial base-case:
+
+     {\tt instance a a}
+
+     Furthermore, for every type constructor there is
+     an instances that allows to coerce under the type constructor. Let, for
+     example, {\tt D} be a prototypical type constructor ({\tt data} or {\tt
+     newtype}) with three type arguments, which have roles Nominal,
+     Representational resp. Phantom. Then there is an instance of the form
+
+     {\tt instance Coercible b b' => Coercible (D a b c) (D a b' c')}
+
+     In SafeHaskell code, this instance is only usable if the constructors of
+     every type constructor used in the definition of {\tt D} (including
+     {\tt D} itself) is in scope.
+
+     The third kind of instance exists for every {\tt newtype NT = MkNT T} and
+     presents itself as
+
+     {\tt instance Coercible a T => Coercible a NT}
+
+     {\tt instance Coercible T b => Coercible NT b}
+
+     This instance is only usable if the constructor {\tt MkNT} is in scope.
+
+     If as a library author of a type constructor like, say, {\tt Set a}, you
+     want to prevent a user of your module to write
+     {\tt coerce :: Set T -> Set NT},
+     you need to change the role of {\tt Set}'s type parameter to Nominal.
+   }
 
 ------------------------------------------------------------------------
 section "Float SIMD Vectors" 
