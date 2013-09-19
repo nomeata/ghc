@@ -5,4 +5,4 @@ install:
 script:
  - cabal update
  - cabal install happy alex
- - PATH=~/.cabal/bin:PATH CPUS=3 ./validate --fast --no-dph
+ - PATH=~/.cabal/bin:$PATH CPUS=3 ./validate --fast --no-dph
