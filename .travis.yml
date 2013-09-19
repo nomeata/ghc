@@ -5,5 +5,5 @@ install:
 script:
  - cabal update
  - cabal install happy alex
- - echo 'V = 0' > mk/validate.mk
- - PATH=~/.cabal/bin:$PATH CPUS=3 ./validate --fast --no-dph
+ - echo 'V = 0' > mk/validate.mk # otherwise we hit log file limits on travis.
+ - PATH=~/.cabal/bin:$PATH CPUS=3 ./validate --no-dph
