@@ -23,4 +23,4 @@ script:
  - perl boot
  - PATH=~/.cabal/bin:$PATH ./configure 
  - PATH=~/.cabal/bin:$PATH make -j3
- - PATH=~/.cabal/bin:$PATH make -C testsuite fast THREADS=3 VERBOSE=1
+ - PATH=~/.cabal/bin:$PATH make -C testsuite fast THREADS=3 VERBOSE=2
