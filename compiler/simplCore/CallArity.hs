@@ -15,7 +15,7 @@ import BasicTypes
 import CoreSyn
 import Id
 import CoreArity ( typeArity )
-import CoreUtils ( exprIsHNF )
+import CoreUtils ( exprIsHNF, exprIsTrivial )
 --import Outputable
 import UnVarGraph
 import Demand
@@ -472,7 +472,12 @@ callArityAnal arity int (App e1 e2)
   where
     (ae1, e1') = callArityAnal (arity + 1) int e1
     (ae2, e2') = callArityAnal 0           int e2
-    final_ae = ae1 `both` ae2
+    -- If the argument is trivial (e.g. a variable), then it will _not_ be
+    -- let-bound in the Core to STG transformation (CorePrep actually),
+    -- so no sharing will happen here, and we have to assume many calls.
+    ae2' | exprIsTrivial e2 = calledMultipleTimes ae2
+         | otherwise        = ae2
+    final_ae = ae1 `both` ae2'
 
 -- Case expression.
 callArityAnal arity int (Case scrut bndr ty alts)
